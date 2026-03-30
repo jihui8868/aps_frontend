@@ -15,42 +15,42 @@ const editingItem = ref(null)
 const confirmVisible = ref(false)
 const deleteId = ref(null)
 
-const categories = ['有机化学品', '无机化学品', '高分子材料', '精细化学品', '石油化工', '其他']
-const dangerLevels = ['甲类', '乙类', '丙类', '丁类']
+const categories = ['醇类', '酯类', '酮类', '无机酸', '树脂类', '其他']
+const hazardLevels = ['甲类', '乙类', '丙类', '丁类']
 const dangerColorMap = { '甲类': '#ff4d4f', '乙类': '#fa8c16', '丙类': '#1677ff', '丁类': '#52c41a' }
 
 const columns = [
   { title: '编号', dataIndex: 'code', key: 'code' },
   { title: '名称', dataIndex: 'name', key: 'name' },
-  { title: 'CAS号', dataIndex: 'cas', key: 'cas' },
+  { title: 'CAS号', dataIndex: 'casNo', key: 'casNo' },
   { title: '类别', dataIndex: 'category', key: 'category' },
   { title: '规格', dataIndex: 'spec', key: 'spec' },
   { title: '单位', dataIndex: 'unit', key: 'unit' },
   { title: '密度', dataIndex: 'density', key: 'density' },
   { title: '闪点', dataIndex: 'flashPoint', key: 'flashPoint' },
-  { title: '危险等级', dataIndex: 'dangerLevel', key: 'dangerLevel' },
+  { title: '危险等级', dataIndex: 'hazardLevel', key: 'hazardLevel' },
   { title: '操作', key: 'action' },
 ]
 
 const defaultForm = () => ({
   code: '',
   name: '',
-  cas: '',
+  casNo: '',
   category: '',
   spec: '',
   unit: '',
   density: '',
   flashPoint: '',
-  dangerLevel: '',
+  hazardLevel: '',
 })
 
 const form = ref(defaultForm())
 
 const filtered = computed(() => {
   return store.items.filter(item => {
-    const matchSearch = !search.value || item.name?.includes(search.value) || item.code?.includes(search.value) || item.cas?.includes(search.value)
+    const matchSearch = !search.value || item.name?.includes(search.value) || item.code?.includes(search.value) || item.casNo?.includes(search.value)
     const matchCategory = !filterCategory.value || item.category === filterCategory.value
-    const matchDanger = !filterDanger.value || item.dangerLevel === filterDanger.value
+    const matchDanger = !filterDanger.value || item.hazardLevel === filterDanger.value
     return matchSearch && matchCategory && matchDanger
   })
 })
@@ -109,7 +109,7 @@ onMounted(() => {
           <a-select-option v-for="c in categories" :key="c" :value="c">{{ c }}</a-select-option>
         </a-select>
         <a-select v-model:value="filterDanger" style="width: 130px;" allow-clear placeholder="全部危险等级">
-          <a-select-option v-for="d in dangerLevels" :key="d" :value="d">{{ d }}</a-select-option>
+          <a-select-option v-for="d in hazardLevels" :key="d" :value="d">{{ d }}</a-select-option>
         </a-select>
       </a-space>
       <a-button type="primary" @click="openAdd">
@@ -126,8 +126,8 @@ onMounted(() => {
       :pagination="false"
     >
       <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'dangerLevel'">
-          <StatusTag :label="record.dangerLevel" :color-map="dangerColorMap" :value="record.dangerLevel" />
+        <template v-if="column.key === 'hazardLevel'">
+          <StatusTag :label="record.hazardLevel" :color-map="dangerColorMap" :value="record.hazardLevel" />
         </template>
         <template v-if="column.key === 'action'">
           <a-button type="link" size="small" @click="openEdit(record)">编辑</a-button>
@@ -161,7 +161,7 @@ onMounted(() => {
         <a-row :gutter="16">
           <a-col :span="12">
             <a-form-item label="CAS号">
-              <a-input v-model:value="form.cas" placeholder="请输入CAS号" />
+              <a-input v-model:value="form.casNo" placeholder="请输入CAS号" />
             </a-form-item>
           </a-col>
           <a-col :span="12">
@@ -199,8 +199,8 @@ onMounted(() => {
         <a-row :gutter="16">
           <a-col :span="12">
             <a-form-item label="危险等级">
-              <a-select v-model:value="form.dangerLevel" placeholder="请选择">
-                <a-select-option v-for="d in dangerLevels" :key="d" :value="d">{{ d }}</a-select-option>
+              <a-select v-model:value="form.hazardLevel" placeholder="请选择">
+                <a-select-option v-for="d in hazardLevels" :key="d" :value="d">{{ d }}</a-select-option>
               </a-select>
             </a-form-item>
           </a-col>

@@ -33,7 +33,7 @@ async function saveUserRoles() {
     await userStore.updateItem(selectedUser.value.id, {
       ...selectedUser.value,
       roleIds: userRoles.value,
-      roleName: roleStore.items.filter(r => userRoles.value.includes(r.id)).map(r => r.name).join(', '),
+      role: roleStore.items.filter(r => userRoles.value.includes(r.id)).map(r => r.name).join(', '),
     })
   } catch (e) {
     console.error(e)
@@ -97,8 +97,8 @@ const matrixColumns = computed(() => [
 // Tab 3: User permission detail
 const userColumns = [
   { title: '用户名', dataIndex: 'username', key: 'username' },
-  { title: '姓名', dataIndex: 'name', key: 'name' },
-  { title: '角色', dataIndex: 'roleName', key: 'roleName' },
+  { title: '姓名', dataIndex: 'realName', key: 'realName' },
+  { title: '角色', dataIndex: 'role', key: 'role' },
   { title: '权限数', key: 'permCount' },
   { title: '操作', key: 'action' },
 ]
@@ -128,12 +128,12 @@ onMounted(() => {
               style="padding: 10px 12px; border-radius: 6px; cursor: pointer; margin-bottom: 4px;"
               :style="{ background: selectedUser?.id === user.id ? '#e6f4ff' : 'transparent' }"
               @click="selectUser(user)">
-              <div style="font-weight: 500; font-size: 14px;">{{ user.name || user.username }}</div>
-              <div style="font-size: 12px; color: rgba(0,0,0,0.45); margin-top: 2px;">{{ user.roleName || '未分配' }}</div>
+              <div style="font-weight: 500; font-size: 14px;">{{ user.realName || user.username }}</div>
+              <div style="font-size: 12px; color: rgba(0,0,0,0.45); margin-top: 2px;">{{ user.role || '未分配' }}</div>
             </div>
           </div>
           <div style="flex: 1; min-width: 0;" v-if="selectedUser">
-            <h4>为 <span style="color: #1677ff">{{ selectedUser.name }}</span> 分配角色</h4>
+            <h4>为 <span style="color: #1677ff">{{ selectedUser.realName }}</span> 分配角色</h4>
             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;">
               <a-card v-for="role in roleStore.items" :key="role.id" size="small" hoverable
                 :style="{ borderColor: userRoles.includes(role.id) ? '#1677ff' : undefined, background: userRoles.includes(role.id) ? '#e6f4ff' : undefined }"
@@ -181,8 +181,8 @@ onMounted(() => {
       <a-tab-pane :key="2" tab="人员权限明细">
         <a-table :columns="userColumns" :data-source="userStore.items" row-key="id" :pagination="false">
           <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'roleName'">
-              {{ record.roleName || '未分配' }}
+            <template v-if="column.key === 'role'">
+              {{ record.role || '未分配' }}
             </template>
             <template v-else-if="column.key === 'permCount'">
               {{ getUserPermissions(record).length }}
@@ -196,8 +196,8 @@ onMounted(() => {
     </a-tabs>
   </a-card>
 
-  <a-modal :open="showDetailModal" :title="(detailUser?.name || detailUser?.username) + ' - 权限明细'" @cancel="showDetailModal = false" :footer="null">
-    <p><strong>角色：</strong>{{ detailUser?.roleName || '未分配' }}</p>
+  <a-modal :open="showDetailModal" :title="(detailUser?.realName || detailUser?.username) + ' - 权限明细'" @cancel="showDetailModal = false" :footer="null">
+    <p><strong>角色：</strong>{{ detailUser?.role || '未分配' }}</p>
     <a-space wrap>
       <a-tag v-for="perm in getUserPermissions(detailUser)" :key="perm" color="blue">{{ permissionLabels[perm] || perm }}</a-tag>
       <span v-if="!getUserPermissions(detailUser).length" style="color: rgba(0,0,0,0.25)">暂无权限</span>

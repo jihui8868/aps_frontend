@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useProcessStore } from '@/stores/process'
 import { useProductStore } from '@/stores/product'
+import { processApi } from '@/api/process'
 import StatusTag from '@/components/StatusTag.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
@@ -19,7 +20,8 @@ const detailItem = ref(null)
 const confirmVisible = ref(false)
 const deleteId = ref(null)
 
-const processCategories = ['合成反应', '分离纯化', '聚合反应', '裂解工艺', '氧化还原', '其他']
+const processCategories = ['合成', '酯化', '聚合', '蒸馏', '其他']
+const deviceTypes = ['反应釜', '塔器', '储罐', '换热器', '压缩机', '泵', '干燥机', '过滤器', '其他']
 const statuses = ['草稿', '已发布', '已停用']
 const statusColorMap = { '草稿': '#1677ff', '已发布': '#52c41a', '已停用': '#ff4d4f' }
 
@@ -78,17 +80,55 @@ function openAdd() {
   showModal.value = true
 }
 
-function openEdit(item) {
+function mapStepsFromApi(steps) {
+  return (steps || []).map(s => ({
+    seq: s.seq,
+    name: s.name,
+    deviceType: s.device || s.deviceType || '',
+    duration: s.duration,
+    temperature: s.temperature || '',
+    pressure: s.pressure || '',
+    description: s.remark || s.description || '',
+  }))
+}
+
+function mapStepsToApi(steps) {
+  return (steps || []).map(s => ({
+    seq: s.seq,
+    name: s.name,
+    device: s.deviceType,
+    duration: s.duration,
+    temperature: s.temperature,
+    pressure: s.pressure,
+    remark: s.description,
+  }))
+}
+
+async function openEdit(item) {
   editingItem.value = item
-  form.value = {
-    ...item,
-    steps: item.steps?.length ? item.steps.map(s => ({ ...s })) : [{ seq: 1, name: '', deviceType: '', duration: '', temperature: '', pressure: '', description: '' }],
+  try {
+    const detail = await processApi.getById(item.id)
+    const steps = mapStepsFromApi(detail.steps)
+    form.value = {
+      ...detail,
+      steps: steps.length ? steps : [{ seq: 1, name: '', deviceType: '', duration: '', temperature: '', pressure: '', description: '' }],
+    }
+  } catch (e) {
+    form.value = {
+      ...item,
+      steps: [{ seq: 1, name: '', deviceType: '', duration: '', temperature: '', pressure: '', description: '' }],
+    }
   }
   showModal.value = true
 }
 
-function openDetail(item) {
-  detailItem.value = item
+async function openDetail(item) {
+  try {
+    const detail = await processApi.getById(item.id)
+    detailItem.value = { ...detail, steps: mapStepsFromApi(detail.steps) }
+  } catch (e) {
+    detailItem.value = item
+  }
   showDetail.value = true
 }
 
@@ -110,6 +150,7 @@ async function handleSave() {
   if (!form.value.code || !form.value.name) return
   const data = {
     ...form.value,
+    steps: mapStepsToApi(form.value.steps),
     totalDuration: totalDuration.value,
     stepCount: form.value.steps.length,
   }
@@ -172,7 +213,7 @@ onMounted(() => {
           {{ record.stepCount || record.steps?.length || 0 }}
         </template>
         <template v-else-if="column.key === 'totalDuration'">
-          {{ record.totalDuration || 0 }}
+          {{ record.totalTime || record.totalDuration || 0 }}
         </template>
         <template v-else-if="column.key === 'status'">
           <StatusTag :label="record.status" :color-map="statusColorMap" :value="record.status" />
@@ -263,7 +304,9 @@ onMounted(() => {
             <a-input v-model:value="record.name" size="small" />
           </template>
           <template v-else-if="column.key === 'deviceType'">
-            <a-input v-model:value="record.deviceType" size="small" />
+            <a-select v-model:value="record.deviceType" size="small" style="width: 100%;">
+              <a-select-option v-for="t in deviceTypes" :key="t" :value="t">{{ t }}</a-select-option>
+            </a-select>
           </template>
           <template v-else-if="column.key === 'duration'">
             <a-input-number v-model:value="record.duration" size="small" style="width: 100%;" />
