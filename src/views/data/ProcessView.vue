@@ -4,6 +4,7 @@ import { useProcessStore } from '@/stores/process'
 import { useProductStore } from '@/stores/product'
 import StatusTag from '@/components/StatusTag.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import { PlusOutlined } from '@ant-design/icons-vue'
 
 const store = useProcessStore()
 const productStore = useProductStore()
@@ -47,6 +48,29 @@ const filtered = computed(() => {
     return matchSearch && matchCategory && matchStatus
   })
 })
+
+const columns = [
+  { title: '编号', dataIndex: 'code', key: 'code' },
+  { title: '名称', dataIndex: 'name', key: 'name' },
+  { title: '对应产品', dataIndex: 'productName', key: 'productName' },
+  { title: '类别', dataIndex: 'category', key: 'category' },
+  { title: '工序数', key: 'stepCount' },
+  { title: '总耗时(h)', key: 'totalDuration' },
+  { title: '状态', dataIndex: 'status', key: 'status' },
+  { title: '版本', dataIndex: 'version', key: 'version' },
+  { title: '操作', key: 'action' },
+]
+
+const stepColumns = [
+  { title: '序号', dataIndex: 'seq', key: 'seq', width: 60 },
+  { title: '工序名称', dataIndex: 'name', key: 'name' },
+  { title: '设备类型', dataIndex: 'deviceType', key: 'deviceType' },
+  { title: '耗时(h)', dataIndex: 'duration', key: 'duration', width: 90 },
+  { title: '温度', dataIndex: 'temperature', key: 'temperature', width: 90 },
+  { title: '压力', dataIndex: 'pressure', key: 'pressure', width: 90 },
+  { title: '描述', dataIndex: 'description', key: 'description' },
+  { title: '操作', key: 'action', width: 60 },
+]
 
 function openAdd() {
   editingItem.value = null
@@ -118,191 +142,191 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="page-card">
-    <div class="toolbar">
-      <input v-model="search" class="form-input" placeholder="搜索工艺编号/名称" style="width: 220px;" />
-      <select v-model="filterCategory" class="form-select" style="width: 140px;">
-        <option value="">全部类别</option>
-        <option v-for="c in processCategories" :key="c" :value="c">{{ c }}</option>
-      </select>
-      <select v-model="filterStatus" class="form-select" style="width: 120px;">
-        <option value="">全部状态</option>
-        <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
-      </select>
-      <span class="spacer"></span>
-      <button class="btn btn-primary" @click="openAdd">+ 新增工艺</button>
-    </div>
+  <a-card>
+    <a-flex justify="space-between" align="center" :gap="8">
+      <a-space>
+        <a-input v-model:value="search" placeholder="搜索工艺编号/名称" style="width: 220px;" />
+        <a-select v-model:value="filterCategory" placeholder="全部类别" allow-clear style="width: 140px;">
+          <a-select-option v-for="c in processCategories" :key="c" :value="c">{{ c }}</a-select-option>
+        </a-select>
+        <a-select v-model:value="filterStatus" placeholder="全部状态" allow-clear style="width: 120px;">
+          <a-select-option v-for="s in statuses" :key="s" :value="s">{{ s }}</a-select-option>
+        </a-select>
+      </a-space>
+      <a-button type="primary" @click="openAdd">
+        <template #icon><PlusOutlined /></template>
+        新增工艺
+      </a-button>
+    </a-flex>
 
-    <div style="overflow-x: auto;">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>编号</th>
-            <th>名称</th>
-            <th>对应产品</th>
-            <th>类别</th>
-            <th>工序数</th>
-            <th>总耗时(h)</th>
-            <th>状态</th>
-            <th>版本</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="item in filtered" :key="item.id">
-            <td>{{ item.code }}</td>
-            <td>{{ item.name }}</td>
-            <td>{{ item.productName }}</td>
-            <td>{{ item.category }}</td>
-            <td>{{ item.stepCount || item.steps?.length || 0 }}</td>
-            <td>{{ item.totalDuration || 0 }}</td>
-            <td>
-              <StatusTag :label="item.status" :color-map="statusColorMap" :value="item.status" />
-            </td>
-            <td>{{ item.version }}</td>
-            <td>
-              <button class="btn-text" @click="openEdit(item)">编辑</button>
-              <button class="btn-text" @click="openDetail(item)">查看</button>
-              <button class="btn-text danger" @click="confirmDelete(item.id)">删除</button>
-            </td>
-          </tr>
-          <tr v-if="!filtered.length">
-            <td colspan="9" class="table-empty">暂无数据</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <a-table
+      :columns="columns"
+      :data-source="filtered"
+      :loading="store.loading"
+      row-key="id"
+      :pagination="false"
+      style="margin-top: 16px;"
+    >
+      <template #bodyCell="{ column, record }">
+        <template v-if="column.key === 'stepCount'">
+          {{ record.stepCount || record.steps?.length || 0 }}
+        </template>
+        <template v-else-if="column.key === 'totalDuration'">
+          {{ record.totalDuration || 0 }}
+        </template>
+        <template v-else-if="column.key === 'status'">
+          <StatusTag :label="record.status" :color-map="statusColorMap" :value="record.status" />
+        </template>
+        <template v-else-if="column.key === 'action'">
+          <a-button type="link" size="small" @click="openEdit(record)">编辑</a-button>
+          <a-button type="link" size="small" @click="openDetail(record)">查看</a-button>
+          <a-button type="link" danger size="small" @click="confirmDelete(record.id)">删除</a-button>
+        </template>
+      </template>
+    </a-table>
 
     <!-- Add/Edit Modal -->
-    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-      <div class="modal-box xlarge">
-        <div class="modal-header">
-          <span>{{ editingItem ? '编辑工艺' : '新增工艺' }}</span>
-          <button class="modal-close" @click="closeModal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">工艺编号 <span class="required">*</span></label>
-              <input v-model="form.code" class="form-input" style="width: 100%;" placeholder="请输入编号" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">工艺名称 <span class="required">*</span></label>
-              <input v-model="form.name" class="form-input" style="width: 100%;" placeholder="请输入名称" />
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">对应产品</label>
-              <select v-model="form.productId" class="form-select" style="width: 100%;" @change="form.productName = productStore.items.find(p => p.id === form.productId)?.name || ''">
-                <option value="">请选择</option>
-                <option v-for="p in productStore.items" :key="p.id" :value="p.id">{{ p.name }}</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">工艺类别</label>
-              <select v-model="form.category" class="form-select" style="width: 100%;">
-                <option value="">请选择</option>
-                <option v-for="c in processCategories" :key="c" :value="c">{{ c }}</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">状态</label>
-              <select v-model="form.status" class="form-select" style="width: 100%;">
-                <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">版本</label>
-              <input v-model="form.version" class="form-input" style="width: 100%;" />
-            </div>
-          </div>
+    <a-modal
+      :open="showModal"
+      :title="editingItem ? '编辑工艺' : '新增工艺'"
+      @cancel="closeModal"
+      :footer="null"
+      width="900px"
+    >
+      <a-form layout="vertical">
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="工艺编号" required>
+              <a-input v-model:value="form.code" placeholder="请输入编号" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="工艺名称" required>
+              <a-input v-model:value="form.name" placeholder="请输入名称" />
+            </a-form-item>
+          </a-col>
+        </a-row>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="对应产品">
+              <a-select v-model:value="form.productId" placeholder="请选择" @change="val => form.productName = productStore.items.find(p => p.id === val)?.name || ''">
+                <a-select-option v-for="p in productStore.items" :key="p.id" :value="p.id">{{ p.name }}</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="工艺类别">
+              <a-select v-model:value="form.category" placeholder="请选择">
+                <a-select-option v-for="c in processCategories" :key="c" :value="c">{{ c }}</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+        </a-row>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="状态">
+              <a-select v-model:value="form.status">
+                <a-select-option v-for="s in statuses" :key="s" :value="s">{{ s }}</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="版本">
+              <a-input v-model:value="form.version" />
+            </a-form-item>
+          </a-col>
+        </a-row>
+      </a-form>
 
-          <div style="margin-top: 16px; border-top: 1px solid var(--border-color); padding-top: 16px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-              <span style="font-weight: 500;">工序步骤 <span style="color: var(--text-light); font-weight: normal;">(总耗时: {{ totalDuration }}h)</span></span>
-              <button class="btn" @click="addStep">+ 添加工序</button>
-            </div>
-            <div style="overflow-x: auto;">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th style="width: 50px;">序号</th>
-                    <th>工序名称</th>
-                    <th>设备类型</th>
-                    <th style="width: 80px;">耗时(h)</th>
-                    <th style="width: 80px;">温度</th>
-                    <th style="width: 80px;">压力</th>
-                    <th>描述</th>
-                    <th style="width: 50px;">操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(step, idx) in form.steps" :key="idx">
-                    <td>{{ step.seq }}</td>
-                    <td><input v-model="step.name" class="form-input" style="width: 100%;" /></td>
-                    <td><input v-model="step.deviceType" class="form-input" style="width: 100%;" /></td>
-                    <td><input v-model="step.duration" type="number" class="form-input" style="width: 100%;" /></td>
-                    <td><input v-model="step.temperature" class="form-input" style="width: 100%;" /></td>
-                    <td><input v-model="step.pressure" class="form-input" style="width: 100%;" /></td>
-                    <td><input v-model="step.description" class="form-input" style="width: 100%;" /></td>
-                    <td>
-                      <button class="btn-text danger" @click="removeStep(idx)" :disabled="form.steps.length <= 1">&times;</button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn" @click="closeModal">取消</button>
-          <button class="btn btn-primary" @click="handleSave">保存</button>
-        </div>
-      </div>
-    </div>
+      <a-divider />
+
+      <a-flex justify="space-between" align="center" style="margin-bottom: 12px;">
+        <span style="font-weight: 500;">工序步骤 <span style="color: rgba(0,0,0,0.45); font-weight: normal;">(总耗时: {{ totalDuration }}h)</span></span>
+        <a-button @click="addStep">
+          <template #icon><PlusOutlined /></template>
+          添加工序
+        </a-button>
+      </a-flex>
+
+      <a-table
+        :columns="stepColumns"
+        :data-source="form.steps"
+        row-key="seq"
+        :pagination="false"
+        size="small"
+      >
+        <template #bodyCell="{ column, record, index }">
+          <template v-if="column.key === 'seq'">
+            {{ record.seq }}
+          </template>
+          <template v-else-if="column.key === 'name'">
+            <a-input v-model:value="record.name" size="small" />
+          </template>
+          <template v-else-if="column.key === 'deviceType'">
+            <a-input v-model:value="record.deviceType" size="small" />
+          </template>
+          <template v-else-if="column.key === 'duration'">
+            <a-input-number v-model:value="record.duration" size="small" style="width: 100%;" />
+          </template>
+          <template v-else-if="column.key === 'temperature'">
+            <a-input v-model:value="record.temperature" size="small" />
+          </template>
+          <template v-else-if="column.key === 'pressure'">
+            <a-input v-model:value="record.pressure" size="small" />
+          </template>
+          <template v-else-if="column.key === 'description'">
+            <a-input v-model:value="record.description" size="small" />
+          </template>
+          <template v-else-if="column.key === 'action'">
+            <a-button type="link" danger size="small" @click="removeStep(index)" :disabled="form.steps.length <= 1">&times;</a-button>
+          </template>
+        </template>
+      </a-table>
+
+      <a-flex justify="flex-end" :gap="8" style="margin-top: 16px;">
+        <a-button @click="closeModal">取消</a-button>
+        <a-button type="primary" @click="handleSave">保存</a-button>
+      </a-flex>
+    </a-modal>
 
     <!-- Detail Modal -->
-    <div v-if="showDetail" class="modal-overlay" @click.self="showDetail = false">
-      <div class="modal-box large">
-        <div class="modal-header">
-          <span>工艺详情 - {{ detailItem?.name }}</span>
-          <button class="modal-close" @click="showDetail = false">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div style="margin-bottom: 16px;">
-            <p><strong>编号：</strong>{{ detailItem?.code }}</p>
-            <p><strong>产品：</strong>{{ detailItem?.productName }}</p>
-            <p><strong>类别：</strong>{{ detailItem?.category }}</p>
-            <p><strong>版本：</strong>{{ detailItem?.version }}</p>
-          </div>
-          <div class="process-flow">
-            <div
-              v-for="(step, idx) in (detailItem?.steps || [])"
-              :key="idx"
-              class="flow-step"
-            >
-              <div class="flow-node">
-                <div class="flow-seq">{{ step.seq }}</div>
-                <div class="flow-info">
-                  <div class="flow-name">{{ step.name }}</div>
-                  <div class="flow-meta">
-                    <span v-if="step.deviceType">设备: {{ step.deviceType }}</span>
-                    <span v-if="step.duration">耗时: {{ step.duration }}h</span>
-                    <span v-if="step.temperature">温度: {{ step.temperature }}</span>
-                    <span v-if="step.pressure">压力: {{ step.pressure }}</span>
-                  </div>
-                  <div v-if="step.description" class="flow-desc">{{ step.description }}</div>
-                </div>
+    <a-modal
+      :open="showDetail"
+      :title="'工艺详情 - ' + detailItem?.name"
+      @cancel="showDetail = false"
+      :footer="null"
+      width="700px"
+    >
+      <a-descriptions :column="2" bordered>
+        <a-descriptions-item label="编号">{{ detailItem?.code }}</a-descriptions-item>
+        <a-descriptions-item label="产品">{{ detailItem?.productName }}</a-descriptions-item>
+        <a-descriptions-item label="类别">{{ detailItem?.category }}</a-descriptions-item>
+        <a-descriptions-item label="版本">{{ detailItem?.version }}</a-descriptions-item>
+      </a-descriptions>
+
+      <div class="process-flow" style="margin-top: 16px;">
+        <div
+          v-for="(step, idx) in (detailItem?.steps || [])"
+          :key="idx"
+          class="flow-step"
+        >
+          <div class="flow-node">
+            <div class="flow-seq">{{ step.seq }}</div>
+            <div class="flow-info">
+              <div class="flow-name">{{ step.name }}</div>
+              <div class="flow-meta">
+                <span v-if="step.deviceType">设备: {{ step.deviceType }}</span>
+                <span v-if="step.duration">耗时: {{ step.duration }}h</span>
+                <span v-if="step.temperature">温度: {{ step.temperature }}</span>
+                <span v-if="step.pressure">压力: {{ step.pressure }}</span>
               </div>
-              <div v-if="idx < (detailItem?.steps?.length || 0) - 1" class="flow-arrow">&#8595;</div>
+              <div v-if="step.description" class="flow-desc">{{ step.description }}</div>
             </div>
           </div>
+          <div v-if="idx < (detailItem?.steps?.length || 0) - 1" class="flow-arrow">&#8595;</div>
         </div>
       </div>
-    </div>
+    </a-modal>
 
     <ConfirmDialog
       :visible="confirmVisible"
@@ -312,72 +336,17 @@ onMounted(() => {
       @confirm="handleDelete"
       @cancel="confirmVisible = false"
     />
-  </div>
+  </a-card>
 </template>
 
 <style scoped>
-.process-flow {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.flow-step {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-}
-
-.flow-node {
-  display: flex;
-  gap: 16px;
-  padding: 16px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  width: 100%;
-  background: #fafafa;
-}
-
-.flow-seq {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--primary);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  flex-shrink: 0;
-}
-
-.flow-info {
-  flex: 1;
-}
-
-.flow-name {
-  font-weight: 500;
-  margin-bottom: 4px;
-}
-
-.flow-meta {
-  display: flex;
-  gap: 16px;
-  color: var(--text-secondary);
-  font-size: 13px;
-}
-
-.flow-desc {
-  color: var(--text-light);
-  font-size: 13px;
-  margin-top: 4px;
-}
-
-.flow-arrow {
-  color: var(--primary);
-  font-size: 20px;
-  line-height: 1;
-}
+.process-flow { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.flow-step { display: flex; flex-direction: column; align-items: center; width: 100%; }
+.flow-node { display: flex; gap: 16px; padding: 16px; border: 1px solid #f0f0f0; border-radius: 8px; width: 100%; background: #fafafa; }
+.flow-seq { width: 32px; height: 32px; border-radius: 50%; background: #1677ff; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 600; flex-shrink: 0; }
+.flow-info { flex: 1; }
+.flow-name { font-weight: 500; margin-bottom: 4px; }
+.flow-meta { display: flex; gap: 16px; color: rgba(0,0,0,0.45); font-size: 13px; }
+.flow-desc { color: rgba(0,0,0,0.45); font-size: 13px; margin-top: 4px; }
+.flow-arrow { color: #1677ff; font-size: 20px; line-height: 1; }
 </style>

@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { MenuFoldOutlined, MenuUnfoldOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons-vue'
 import SideMenu from './SideMenu.vue'
 
 const route = useRoute()
@@ -16,10 +17,6 @@ const pageGroup = computed(() => {
   return route.meta?.group || ''
 })
 
-function toggleCollapse() {
-  collapsed.value = !collapsed.value
-}
-
 function handleLogout() {
   authStore.logout()
   window.location.href = '/login'
@@ -27,74 +24,68 @@ function handleLogout() {
 </script>
 
 <template>
-  <div class="app-layout">
-    <aside class="sidebar" :class="{ collapsed }">
+  <a-layout style="min-height: 100vh">
+    <a-layout-sider
+      v-model:collapsed="collapsed"
+      collapsible
+      :width="220"
+      :collapsed-width="64"
+      theme="light"
+      :trigger="null"
+    >
       <div class="logo-area">
         <div class="logo-icon">APS</div>
         <span v-if="!collapsed" class="logo-text">智能排程系统</span>
       </div>
       <SideMenu :collapsed="collapsed" />
-    </aside>
-    <div class="main-area">
-      <header class="top-bar">
+    </a-layout-sider>
+    <a-layout>
+      <a-layout-header class="top-bar">
         <div class="top-bar-left">
-          <button class="collapse-btn" @click="toggleCollapse">
-            <span :class="collapsed ? 'icon-expand' : 'icon-collapse'">{{ collapsed ? '&#9776;' : '&#9776;' }}</span>
-          </button>
-          <span class="breadcrumb" v-if="pageGroup">
-            <span class="breadcrumb-group">{{ pageGroup }}</span>
-            <span class="breadcrumb-sep">/</span>
-          </span>
-          <span class="page-title">{{ pageTitle }}</span>
+          <a-button type="text" @click="collapsed = !collapsed">
+            <template #icon>
+              <MenuUnfoldOutlined v-if="collapsed" />
+              <MenuFoldOutlined v-else />
+            </template>
+          </a-button>
+          <a-breadcrumb v-if="pageGroup">
+            <a-breadcrumb-item>{{ pageGroup }}</a-breadcrumb-item>
+            <a-breadcrumb-item>{{ pageTitle }}</a-breadcrumb-item>
+          </a-breadcrumb>
+          <span v-else class="page-title">{{ pageTitle }}</span>
         </div>
         <div class="top-bar-right">
-          <span class="user-name">{{ authStore.user?.name || authStore.user?.username || '管理员' }}</span>
-          <button class="btn-text" @click="handleLogout">退出登录</button>
+          <a-space>
+            <UserOutlined />
+            <span>{{ authStore.user?.name || authStore.user?.username || '管理员' }}</span>
+            <a-button type="text" danger @click="handleLogout">
+              <template #icon><LogoutOutlined /></template>
+              退出登录
+            </a-button>
+          </a-space>
         </div>
-      </header>
-      <main class="workspace">
+      </a-layout-header>
+      <a-layout-content class="workspace">
         <router-view />
-      </main>
-    </div>
-  </div>
+      </a-layout-content>
+    </a-layout>
+  </a-layout>
 </template>
 
 <style scoped>
-.app-layout {
-  display: flex;
-  height: 100vh;
-  overflow: hidden;
-}
-
-.sidebar {
-  width: 220px;
-  background: #fff;
-  border-right: 1px solid var(--border-color);
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  transition: width 0.25s;
-  overflow: hidden;
-}
-
-.sidebar.collapsed {
-  width: 64px;
-}
-
 .logo-area {
-  height: 60px;
+  height: 64px;
   display: flex;
   align-items: center;
   padding: 0 16px;
   gap: 10px;
-  border-bottom: 1px solid var(--border-color);
-  flex-shrink: 0;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .logo-icon {
   width: 32px;
   height: 32px;
-  background: var(--primary);
+  background: #1677ff;
   color: #fff;
   border-radius: 6px;
   display: flex;
@@ -108,26 +99,18 @@ function handleLogout() {
 .logo-text {
   font-size: 16px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: rgba(0, 0, 0, 0.88);
   white-space: nowrap;
 }
 
-.main-area {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
 .top-bar {
-  height: 60px;
   background: #fff;
-  border-bottom: 1px solid var(--border-color);
+  padding: 0 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
-  flex-shrink: 0;
+  height: 64px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .top-bar-left {
@@ -136,48 +119,19 @@ function handleLogout() {
   gap: 12px;
 }
 
-.collapse-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 18px;
-  color: var(--text-secondary);
-  padding: 4px;
-}
-
-.collapse-btn:hover {
-  color: var(--primary);
-}
-
-.breadcrumb-group {
-  color: var(--text-light);
-}
-
-.breadcrumb-sep {
-  color: var(--text-light);
-  margin: 0 4px;
-}
-
 .page-title {
   font-size: 16px;
   font-weight: 500;
-  color: var(--text-primary);
 }
 
 .top-bar-right {
   display: flex;
   align-items: center;
-  gap: 16px;
-}
-
-.user-name {
-  color: var(--text-secondary);
 }
 
 .workspace {
-  flex: 1;
-  background: var(--workspace-bg);
   padding: 16px;
+  background: #f5f5f5;
   overflow-y: auto;
 }
 </style>

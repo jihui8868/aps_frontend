@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, nextTick, watch } from 'vue'
 import { useScheduleStore } from '@/stores/schedule'
+import { DeleteOutlined, ClearOutlined } from '@ant-design/icons-vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
 const store = useScheduleStore()
@@ -16,6 +17,17 @@ const historyList = ref([])
 const taskColors = [
   '#1677ff', '#52c41a', '#fa8c16', '#ff4d4f', '#722ed1',
   '#13c2c2', '#eb2f96', '#faad14', '#2f54eb', '#a0d911',
+]
+
+const detailColumns = [
+  { title: '订单编号', dataIndex: 'orderNo', key: 'orderNo' },
+  { title: '产品', dataIndex: 'productName', key: 'productName' },
+  { title: '设备', dataIndex: 'deviceName', key: 'deviceName' },
+  { title: '车间', dataIndex: 'workshop', key: 'workshop' },
+  { title: '开始时间', key: 'startTime' },
+  { title: '结束时间', key: 'endTime' },
+  { title: '工时(h)', key: 'hours' },
+  { title: '延期', key: 'isLate' },
 ]
 
 async function loadHistory() {
@@ -179,92 +191,49 @@ onMounted(() => {
   <div class="history-page">
     <!-- Left: History List -->
     <div class="history-sidebar">
-      <div class="sidebar-header">
-        <h3 style="margin: 0; font-size: 15px;">排程记录</h3>
-        <button class="btn-text danger" @click="confirmClearAll = true" v-if="historyList.length">清空</button>
-      </div>
-      <div class="history-list">
-        <div
-          v-for="item in historyList"
-          :key="item.id"
-          class="history-item"
-          :class="{ active: selected?.id === item.id }"
-          @click="selectItem(item)"
-        >
+      <a-card title="排程记录" :body-style="{ padding: '8px', flex: 1, overflowY: 'auto' }" style="display: flex; flex-direction: column; height: 100%;">
+        <template #extra>
+          <a-button v-if="historyList.length" type="link" danger size="small" @click="confirmClearAll = true">清空</a-button>
+        </template>
+        <div v-for="item in historyList" :key="item.id" class="history-item" :class="{ active: selected?.id === item.id }" @click="selectItem(item)">
           <div class="history-time">{{ formatDate(item.createdAt) }}</div>
-          <div class="history-meta">
-            订单: {{ item.orderCount }} | 延期: {{ item.lateCount || 0 }} | 工期: {{ item.makespan }}h
-          </div>
-          <button class="delete-btn" @click.stop="confirmDeleteItem(item.id)">&times;</button>
+          <div class="history-meta">订单: {{ item.orderCount }} | 延期: {{ item.lateCount || 0 }} | 工期: {{ item.makespan }}h</div>
+          <a-button class="delete-btn" type="text" danger size="small" @click.stop="confirmDeleteItem(item.id)">
+            <template #icon><DeleteOutlined /></template>
+          </a-button>
         </div>
-        <div v-if="!historyList.length" style="text-align: center; padding: 32px 0; color: var(--text-light);">暂无记录</div>
-      </div>
+        <a-empty v-if="!historyList.length" description="暂无记录" />
+      </a-card>
     </div>
 
     <!-- Right: Detail -->
     <div class="history-main">
-      <div v-if="!selected" class="history-empty">
-        <p>请从左侧选择一条排程记录查看详情</p>
-      </div>
+      <a-empty v-if="!selected" description="请从左侧选择一条排程记录查看详情" style="margin-top: 100px" />
 
       <template v-if="selected">
-        <div class="stats-row">
-          <div class="stat-card">
-            <div class="stat-value">{{ selected.makespan }}h</div>
-            <div class="stat-label">总工期</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value">{{ selected.orderCount }}</div>
-            <div class="stat-label">订单数</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" :style="{ color: selected.lateCount ? '#ff4d4f' : '#52c41a' }">{{ selected.lateCount || 0 }}</div>
-            <div class="stat-label">延期数</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value">{{ selected.iterations }}</div>
-            <div class="stat-label">迭代次数</div>
-          </div>
-        </div>
+        <a-row :gutter="16" style="margin-bottom: 16px">
+          <a-col :span="6"><a-card><a-statistic title="总工期" :value="selected.makespan" suffix="h" /></a-card></a-col>
+          <a-col :span="6"><a-card><a-statistic title="订单数" :value="selected.orderCount" /></a-card></a-col>
+          <a-col :span="6"><a-card><a-statistic title="延期数" :value="selected.lateCount || 0" :value-style="{ color: selected.lateCount ? '#ff4d4f' : '#52c41a' }" /></a-card></a-col>
+          <a-col :span="6"><a-card><a-statistic title="迭代次数" :value="selected.iterations" /></a-card></a-col>
+        </a-row>
 
-        <div class="page-card" style="margin-bottom: 16px; overflow-x: auto;">
-          <h4 style="margin: 0 0 12px; font-size: 15px;">甘特图</h4>
+        <a-card title="甘特图" style="margin-bottom: 16px; overflow-x: auto;">
           <canvas ref="canvasRef"></canvas>
-        </div>
+        </a-card>
 
-        <div class="page-card">
-          <h4 style="margin: 0 0 12px; font-size: 15px;">排程详情</h4>
-          <div style="overflow-x: auto;">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>订单编号</th>
-                  <th>产品</th>
-                  <th>设备</th>
-                  <th>车间</th>
-                  <th>开始时间</th>
-                  <th>结束时间</th>
-                  <th>工时(h)</th>
-                  <th>延期</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(item, idx) in selected.schedule" :key="idx">
-                  <td>{{ item.orderNo }}</td>
-                  <td>{{ item.productName }}</td>
-                  <td>{{ item.deviceName }}</td>
-                  <td>{{ item.workshop }}</td>
-                  <td>{{ formatTime(item.startTime) }}</td>
-                  <td>{{ formatTime(item.endTime) }}</td>
-                  <td>{{ (item.hours || 0).toFixed ? item.hours.toFixed(1) : item.hours }}</td>
-                  <td>
-                    <span :style="{ color: item.isLate ? '#ff4d4f' : '#52c41a' }">{{ item.isLate ? '是' : '否' }}</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <a-card title="排程详情">
+          <a-table :columns="detailColumns" :data-source="selected.schedule" :pagination="false" size="small">
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'startTime'">{{ formatTime(record.startTime) }}</template>
+              <template v-else-if="column.key === 'endTime'">{{ formatTime(record.endTime) }}</template>
+              <template v-else-if="column.key === 'hours'">{{ (record.hours || 0).toFixed ? record.hours.toFixed(1) : record.hours }}</template>
+              <template v-else-if="column.key === 'isLate'">
+                <a-tag :color="record.isLate ? 'red' : 'green'">{{ record.isLate ? '是' : '否' }}</a-tag>
+              </template>
+            </template>
+          </a-table>
+        </a-card>
       </template>
     </div>
 
@@ -288,122 +257,14 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.history-page {
-  display: flex;
-  gap: 16px;
-  height: calc(100vh - 92px);
-}
-
-.history-sidebar {
-  width: 300px;
-  background: #fff;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-}
-
-.sidebar-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.history-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 8px;
-}
-
-.history-item {
-  padding: 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.2s;
-  position: relative;
-}
-
-.history-item:hover {
-  background: var(--hover-bg);
-}
-
-.history-item.active {
-  background: var(--primary-bg);
-}
-
-.history-time {
-  font-weight: 500;
-  font-size: 13px;
-  margin-bottom: 4px;
-}
-
-.history-meta {
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
-.delete-btn {
-  position: absolute;
-  right: 8px;
-  top: 8px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-light);
-  font-size: 16px;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.history-item:hover .delete-btn {
-  opacity: 1;
-}
-
-.delete-btn:hover {
-  color: var(--danger);
-}
-
-.history-main {
-  flex: 1;
-  overflow-y: auto;
-  min-width: 0;
-}
-
-.history-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 300px;
-  background: #fff;
-  border-radius: 8px;
-  color: var(--text-light);
-}
-
-.stats-row {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.stat-card {
-  flex: 1;
-  background: #fff;
-  border-radius: 8px;
-  padding: 16px;
-  text-align: center;
-}
-
-.stat-value {
-  font-size: 24px;
-  font-weight: 600;
-  color: var(--primary);
-}
-
-.stat-label {
-  font-size: 12px;
-  color: var(--text-light);
-  margin-top: 4px;
-}
+.history-page { display: flex; gap: 16px; height: calc(100vh - 92px); }
+.history-sidebar { width: 300px; flex-shrink: 0; }
+.history-main { flex: 1; overflow-y: auto; min-width: 0; }
+.history-item { padding: 12px; border-radius: 6px; cursor: pointer; position: relative; }
+.history-item:hover { background: #f5f5f5; }
+.history-item.active { background: #e6f4ff; }
+.history-time { font-weight: 500; font-size: 13px; margin-bottom: 4px; }
+.history-meta { font-size: 12px; color: rgba(0,0,0,0.45); }
+.delete-btn { position: absolute; right: 8px; top: 8px; opacity: 0; }
+.history-item:hover .delete-btn { opacity: 1; }
 </style>

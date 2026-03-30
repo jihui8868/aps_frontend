@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { PlusOutlined } from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useRoleStore } from '@/stores/role'
 import { useDeptStore } from '@/stores/dept'
@@ -21,6 +22,18 @@ const actionId = ref(null)
 
 const statuses = ['启用', '停用']
 const statusColorMap = { '启用': '#52c41a', '停用': '#ff4d4f' }
+
+const columns = [
+  { title: '用户名', dataIndex: 'username', key: 'username' },
+  { title: '姓名', dataIndex: 'name', key: 'name' },
+  { title: '角色', dataIndex: 'roleName', key: 'roleName' },
+  { title: '部门', dataIndex: 'deptName', key: 'deptName' },
+  { title: '手机号', dataIndex: 'phone', key: 'phone' },
+  { title: '邮箱', dataIndex: 'email', key: 'email' },
+  { title: '状态', dataIndex: 'status', key: 'status' },
+  { title: '创建时间', dataIndex: 'createdAt', key: 'createdAt' },
+  { title: '操作', key: 'action' },
+]
 
 const defaultForm = () => ({
   username: '',
@@ -124,119 +137,97 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="page-card">
-    <div class="toolbar">
-      <input v-model="search" class="form-input" placeholder="搜索用户名/姓名" style="width: 200px;" />
-      <select v-model="filterRole" class="form-select" style="width: 130px;">
-        <option value="">全部角色</option>
-        <option v-for="r in roleStore.items" :key="r.id" :value="r.name">{{ r.name }}</option>
-      </select>
-      <select v-model="filterStatus" class="form-select" style="width: 120px;">
-        <option value="">全部状态</option>
-        <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
-      </select>
-      <span class="spacer"></span>
-      <button class="btn btn-primary" @click="openAdd">+ 新增用户</button>
-    </div>
+  <a-card>
+    <a-flex justify="space-between" align="center" wrap="wrap" :gap="8">
+      <a-space>
+        <a-input v-model:value="search" placeholder="搜索用户名/姓名" style="width: 200px;" />
+        <a-select v-model:value="filterRole" style="width: 130px;" placeholder="全部角色" allow-clear>
+          <a-select-option v-for="r in roleStore.items" :key="r.id" :value="r.name">{{ r.name }}</a-select-option>
+        </a-select>
+        <a-select v-model:value="filterStatus" style="width: 120px;" placeholder="全部状态" allow-clear>
+          <a-select-option v-for="s in statuses" :key="s" :value="s">{{ s }}</a-select-option>
+        </a-select>
+      </a-space>
+      <a-button type="primary" @click="openAdd">
+        <template #icon><PlusOutlined /></template>
+        新增用户
+      </a-button>
+    </a-flex>
 
-    <div style="overflow-x: auto;">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>用户名</th>
-            <th>姓名</th>
-            <th>角色</th>
-            <th>部门</th>
-            <th>手机号</th>
-            <th>邮箱</th>
-            <th>状态</th>
-            <th>创建时间</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="item in filtered" :key="item.id">
-            <td>{{ item.username }}</td>
-            <td>{{ item.name }}</td>
-            <td>{{ item.roleName }}</td>
-            <td>{{ item.deptName }}</td>
-            <td>{{ item.phone }}</td>
-            <td>{{ item.email }}</td>
-            <td>
-              <StatusTag :label="item.status" :color-map="statusColorMap" :value="item.status" />
-            </td>
-            <td>{{ item.createdAt }}</td>
-            <td>
-              <button class="btn-text" @click="openEdit(item)">编辑</button>
-              <button class="btn-text" @click="confirmToggleStatus(item.id)">{{ item.status === '启用' ? '停用' : '启用' }}</button>
-              <button class="btn-text" @click="confirmResetPassword(item.id)">重置密码</button>
-              <button class="btn-text danger" @click="confirmDelete(item.id)">删除</button>
-            </td>
-          </tr>
-          <tr v-if="!filtered.length">
-            <td colspan="9" class="table-empty">暂无数据</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <a-table
+      :columns="columns"
+      :data-source="filtered"
+      :loading="userStore.loading"
+      row-key="id"
+      :pagination="false"
+      style="margin-top: 16px;"
+    >
+      <template #bodyCell="{ column, record }">
+        <template v-if="column.key === 'status'">
+          <StatusTag :label="record.status" :color-map="statusColorMap" :value="record.status" />
+        </template>
+        <template v-else-if="column.key === 'action'">
+          <a-button type="link" size="small" @click="openEdit(record)">编辑</a-button>
+          <a-button type="link" size="small" @click="confirmToggleStatus(record.id)">{{ record.status === '启用' ? '停用' : '启用' }}</a-button>
+          <a-button type="link" size="small" @click="confirmResetPassword(record.id)">重置密码</a-button>
+          <a-button type="link" danger size="small" @click="confirmDelete(record.id)">删除</a-button>
+        </template>
+      </template>
+    </a-table>
 
-    <!-- Add/Edit Modal -->
-    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-      <div class="modal-box">
-        <div class="modal-header">
-          <span>{{ editingItem ? '编辑用户' : '新增用户' }}</span>
-          <button class="modal-close" @click="closeModal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label class="form-label">用户名 <span class="required">*</span></label>
-            <input v-model="form.username" class="form-input" style="width: 100%;" :disabled="!!editingItem" placeholder="请输入用户名" />
-          </div>
-          <div class="form-group" v-if="!editingItem">
-            <label class="form-label">密码 <span class="required">*</span></label>
-            <input v-model="form.password" type="password" class="form-input" style="width: 100%;" placeholder="请输入密码" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">姓名 <span class="required">*</span></label>
-            <input v-model="form.name" class="form-input" style="width: 100%;" placeholder="请输入姓名" />
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">角色</label>
-              <select v-model="form.roleId" class="form-select" style="width: 100%;" @change="form.roleName = roleStore.items.find(r => r.id === form.roleId)?.name || ''">
-                <option value="">请选择</option>
-                <option v-for="r in roleStore.items" :key="r.id" :value="r.id">{{ r.name }}</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">部门</label>
-              <select v-model="form.deptId" class="form-select" style="width: 100%;" @change="form.deptName = deptStore.items.find(d => d.id === form.deptId)?.name || ''">
-                <option value="">请选择</option>
-                <option v-for="d in deptStore.items" :key="d.id" :value="d.id">{{ d.name }}</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">手机号</label>
-              <input v-model="form.phone" class="form-input" style="width: 100%;" placeholder="手机号码" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">邮箱</label>
-              <input v-model="form.email" class="form-input" style="width: 100%;" placeholder="电子邮箱" />
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">备注</label>
-            <textarea v-model="form.remark" class="form-textarea" style="width: 100%;" placeholder="备注信息"></textarea>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn" @click="closeModal">取消</button>
-          <button class="btn btn-primary" @click="handleSave">保存</button>
-        </div>
-      </div>
-    </div>
+    <a-modal
+      :open="showModal"
+      :title="editingItem ? '编辑用户' : '新增用户'"
+      @cancel="closeModal"
+      :footer="null"
+    >
+      <a-form layout="vertical">
+        <a-form-item label="用户名" required>
+          <a-input v-model:value="form.username" :disabled="!!editingItem" placeholder="请输入用户名" />
+        </a-form-item>
+        <a-form-item v-if="!editingItem" label="密码" required>
+          <a-input-password v-model:value="form.password" placeholder="请输入密码" />
+        </a-form-item>
+        <a-form-item label="姓名" required>
+          <a-input v-model:value="form.name" placeholder="请输入姓名" />
+        </a-form-item>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="角色">
+              <a-select v-model:value="form.roleId" placeholder="请选择" style="width: 100%;" @change="val => form.roleName = roleStore.items.find(r => r.id === val)?.name || ''">
+                <a-select-option v-for="r in roleStore.items" :key="r.id" :value="r.id">{{ r.name }}</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="部门">
+              <a-select v-model:value="form.deptId" placeholder="请选择" style="width: 100%;" @change="val => form.deptName = deptStore.items.find(d => d.id === val)?.name || ''">
+                <a-select-option v-for="d in deptStore.items" :key="d.id" :value="d.id">{{ d.name }}</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+        </a-row>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="手机号">
+              <a-input v-model:value="form.phone" placeholder="手机号码" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="邮箱">
+              <a-input v-model:value="form.email" placeholder="电子邮箱" />
+            </a-form-item>
+          </a-col>
+        </a-row>
+        <a-form-item label="备注">
+          <a-textarea v-model:value="form.remark" placeholder="备注信息" />
+        </a-form-item>
+        <a-flex justify="flex-end" :gap="8">
+          <a-button @click="closeModal">取消</a-button>
+          <a-button type="primary" @click="handleSave">保存</a-button>
+        </a-flex>
+      </a-form>
+    </a-modal>
 
     <ConfirmDialog
       :visible="confirmVisible"
@@ -246,5 +237,5 @@ onMounted(() => {
       @confirm="handleConfirm"
       @cancel="confirmVisible = false"
     />
-  </div>
+  </a-card>
 </template>

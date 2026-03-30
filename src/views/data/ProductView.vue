@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useProductStore } from '@/stores/product'
+import { PlusOutlined } from '@ant-design/icons-vue'
 import StatusTag from '@/components/StatusTag.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
@@ -17,6 +18,19 @@ const deleteId = ref(null)
 const categories = ['有机化学品', '无机化学品', '高分子材料', '精细化学品', '石油化工', '其他']
 const dangerLevels = ['甲类', '乙类', '丙类', '丁类']
 const dangerColorMap = { '甲类': '#ff4d4f', '乙类': '#fa8c16', '丙类': '#1677ff', '丁类': '#52c41a' }
+
+const columns = [
+  { title: '编号', dataIndex: 'code', key: 'code' },
+  { title: '名称', dataIndex: 'name', key: 'name' },
+  { title: 'CAS号', dataIndex: 'cas', key: 'cas' },
+  { title: '类别', dataIndex: 'category', key: 'category' },
+  { title: '规格', dataIndex: 'spec', key: 'spec' },
+  { title: '单位', dataIndex: 'unit', key: 'unit' },
+  { title: '密度', dataIndex: 'density', key: 'density' },
+  { title: '闪点', dataIndex: 'flashPoint', key: 'flashPoint' },
+  { title: '危险等级', dataIndex: 'dangerLevel', key: 'dangerLevel' },
+  { title: '操作', key: 'action' },
+]
 
 const defaultForm = () => ({
   code: '',
@@ -87,127 +101,112 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="page-card">
-    <div class="toolbar">
-      <input v-model="search" class="form-input" placeholder="搜索编号/名称/CAS号" style="width: 220px;" />
-      <select v-model="filterCategory" class="form-select" style="width: 140px;">
-        <option value="">全部类别</option>
-        <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
-      </select>
-      <select v-model="filterDanger" class="form-select" style="width: 130px;">
-        <option value="">全部危险等级</option>
-        <option v-for="d in dangerLevels" :key="d" :value="d">{{ d }}</option>
-      </select>
-      <span class="spacer"></span>
-      <button class="btn btn-primary" @click="openAdd">+ 新增产品</button>
-    </div>
+  <a-card>
+    <a-flex justify="space-between" style="margin-bottom: 16px;">
+      <a-space>
+        <a-input v-model:value="search" placeholder="搜索编号/名称/CAS号" style="width: 220px;" allow-clear />
+        <a-select v-model:value="filterCategory" style="width: 140px;" allow-clear placeholder="全部类别">
+          <a-select-option v-for="c in categories" :key="c" :value="c">{{ c }}</a-select-option>
+        </a-select>
+        <a-select v-model:value="filterDanger" style="width: 130px;" allow-clear placeholder="全部危险等级">
+          <a-select-option v-for="d in dangerLevels" :key="d" :value="d">{{ d }}</a-select-option>
+        </a-select>
+      </a-space>
+      <a-button type="primary" @click="openAdd">
+        <template #icon><PlusOutlined /></template>
+        新增产品
+      </a-button>
+    </a-flex>
 
-    <div style="overflow-x: auto;">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>编号</th>
-            <th>名称</th>
-            <th>CAS号</th>
-            <th>类别</th>
-            <th>规格</th>
-            <th>单位</th>
-            <th>密度</th>
-            <th>闪点</th>
-            <th>危险等级</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="item in filtered" :key="item.id">
-            <td>{{ item.code }}</td>
-            <td>{{ item.name }}</td>
-            <td>{{ item.cas }}</td>
-            <td>{{ item.category }}</td>
-            <td>{{ item.spec }}</td>
-            <td>{{ item.unit }}</td>
-            <td>{{ item.density }}</td>
-            <td>{{ item.flashPoint }}</td>
-            <td>
-              <StatusTag :label="item.dangerLevel" :color-map="dangerColorMap" :value="item.dangerLevel" />
-            </td>
-            <td>
-              <button class="btn-text" @click="openEdit(item)">编辑</button>
-              <button class="btn-text danger" @click="confirmDelete(item.id)">删除</button>
-            </td>
-          </tr>
-          <tr v-if="!filtered.length">
-            <td colspan="10" class="table-empty">暂无数据</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <a-table
+      :columns="columns"
+      :data-source="filtered"
+      :loading="store.loading"
+      row-key="id"
+      :pagination="false"
+    >
+      <template #bodyCell="{ column, record }">
+        <template v-if="column.key === 'dangerLevel'">
+          <StatusTag :label="record.dangerLevel" :color-map="dangerColorMap" :value="record.dangerLevel" />
+        </template>
+        <template v-if="column.key === 'action'">
+          <a-button type="link" size="small" @click="openEdit(record)">编辑</a-button>
+          <a-button type="link" danger size="small" @click="confirmDelete(record.id)">删除</a-button>
+        </template>
+      </template>
+    </a-table>
 
-    <!-- Add/Edit Modal -->
-    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-      <div class="modal-box large">
-        <div class="modal-header">
-          <span>{{ editingItem ? '编辑产品' : '新增产品' }}</span>
-          <button class="modal-close" @click="closeModal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">编号 <span class="required">*</span></label>
-              <input v-model="form.code" class="form-input" style="width: 100%;" placeholder="请输入编号" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">名称 <span class="required">*</span></label>
-              <input v-model="form.name" class="form-input" style="width: 100%;" placeholder="请输入名称" />
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">CAS号</label>
-              <input v-model="form.cas" class="form-input" style="width: 100%;" placeholder="请输入CAS号" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">类别</label>
-              <select v-model="form.category" class="form-select" style="width: 100%;">
-                <option value="">请选择</option>
-                <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">规格</label>
-              <input v-model="form.spec" class="form-input" style="width: 100%;" placeholder="请输入规格" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">单位</label>
-              <input v-model="form.unit" class="form-input" style="width: 100%;" placeholder="如: kg, L, t" />
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">密度</label>
-              <input v-model="form.density" class="form-input" style="width: 100%;" placeholder="g/cm3" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">闪点</label>
-              <input v-model="form.flashPoint" class="form-input" style="width: 100%;" placeholder="摄氏度" />
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">危险等级</label>
-            <select v-model="form.dangerLevel" class="form-select" style="width: 200px;">
-              <option value="">请选择</option>
-              <option v-for="d in dangerLevels" :key="d" :value="d">{{ d }}</option>
-            </select>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn" @click="closeModal">取消</button>
-          <button class="btn btn-primary" @click="handleSave">保存</button>
-        </div>
-      </div>
-    </div>
+    <a-modal
+      :open="showModal"
+      :title="editingItem ? '编辑产品' : '新增产品'"
+      @cancel="closeModal"
+      @ok="handleSave"
+      ok-text="保存"
+      cancel-text="取消"
+      width="640px"
+    >
+      <a-form :label-col="{ span: 6 }" :wrapper-col="{ span: 18 }">
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="编号" required>
+              <a-input v-model:value="form.code" placeholder="请输入编号" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="名称" required>
+              <a-input v-model:value="form.name" placeholder="请输入名称" />
+            </a-form-item>
+          </a-col>
+        </a-row>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="CAS号">
+              <a-input v-model:value="form.cas" placeholder="请输入CAS号" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="类别">
+              <a-select v-model:value="form.category" placeholder="请选择">
+                <a-select-option v-for="c in categories" :key="c" :value="c">{{ c }}</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+        </a-row>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="规格">
+              <a-input v-model:value="form.spec" placeholder="请输入规格" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="单位">
+              <a-input v-model:value="form.unit" placeholder="如: kg, L, t" />
+            </a-form-item>
+          </a-col>
+        </a-row>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="密度">
+              <a-input v-model:value="form.density" placeholder="g/cm3" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="闪点">
+              <a-input v-model:value="form.flashPoint" placeholder="摄氏度" />
+            </a-form-item>
+          </a-col>
+        </a-row>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="危险等级">
+              <a-select v-model:value="form.dangerLevel" placeholder="请选择">
+                <a-select-option v-for="d in dangerLevels" :key="d" :value="d">{{ d }}</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+        </a-row>
+      </a-form>
+    </a-modal>
 
     <ConfirmDialog
       :visible="confirmVisible"
@@ -217,5 +216,5 @@ onMounted(() => {
       @confirm="handleDelete"
       @cancel="confirmVisible = false"
     />
-  </div>
+  </a-card>
 </template>

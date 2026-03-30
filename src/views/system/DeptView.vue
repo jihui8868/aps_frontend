@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { PlusOutlined } from '@ant-design/icons-vue'
 import { useDeptStore } from '@/stores/dept'
 import StatusTag from '@/components/StatusTag.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
@@ -12,11 +13,20 @@ const showModal = ref(false)
 const editingItem = ref(null)
 const confirmVisible = ref(false)
 const deleteId = ref(null)
-const expandedIds = ref(new Set())
-const allExpanded = ref(true)
+const expandedRowKeys = ref([])
 
 const statuses = ['启用', '停用']
 const statusColorMap = { '启用': '#52c41a', '停用': '#ff4d4f' }
+
+const columns = [
+  { title: '部门名称', dataIndex: 'name', key: 'name' },
+  { title: '部门编码', dataIndex: 'code', key: 'code' },
+  { title: '负责人', dataIndex: 'leader', key: 'leader' },
+  { title: '联系电话', dataIndex: 'phone', key: 'phone' },
+  { title: '排序', dataIndex: 'sort', key: 'sort' },
+  { title: '状态', dataIndex: 'status', key: 'status' },
+  { title: '操作', key: 'action' },
+]
 
 const defaultForm = () => ({
   code: '',
@@ -42,26 +52,28 @@ function buildTree(items, parentId = null) {
     .sort((a, b) => (a.sort || 0) - (b.sort || 0))
 }
 
-// Flatten tree for display
-function flattenTree(tree, level = 0) {
-  const result = []
-  tree.forEach(node => {
-    const matchSearch = !search.value || node.name?.includes(search.value) || node.code?.includes(search.value)
-    const matchStatus = !filterStatus.value || node.status === filterStatus.value
-    const childNodes = flattenTree(node.children || [], level + 1)
+const treeData = computed(() => buildTree(store.items))
 
-    if (matchSearch && matchStatus || childNodes.length > 0) {
-      result.push({ ...node, level, hasChildren: (node.children || []).length > 0 })
-      if ((allExpanded.value || expandedIds.value.has(node.id)) && childNodes.length) {
-        result.push(...childNodes)
+// Filter tree data based on search and status
+const filteredTreeData = computed(() => {
+  if (!search.value && !filterStatus.value) return treeData.value
+
+  function filterNodes(nodes) {
+    const result = []
+    for (const node of nodes) {
+      const matchSearch = !search.value || node.name?.includes(search.value) || node.code?.includes(search.value)
+      const matchStatus = !filterStatus.value || node.status === filterStatus.value
+      const filteredChildren = filterNodes(node.children || [])
+
+      if (matchSearch && matchStatus || filteredChildren.length > 0) {
+        result.push({ ...node, children: filteredChildren.length > 0 ? filteredChildren : node.children })
       }
     }
-  })
-  return result
-}
+    return result
+  }
 
-const treeData = computed(() => buildTree(store.items))
-const flatData = computed(() => flattenTree(treeData.value))
+  return filterNodes(treeData.value)
+})
 
 // Get all available parent depts (excluding self and children)
 function getAvailableParents(excludeId) {
@@ -86,19 +98,20 @@ function getAvailableParents(excludeId) {
   return store.items.filter(d => !excludeIds.has(d.id))
 }
 
-function toggleExpand(id) {
-  if (expandedIds.value.has(id)) {
-    expandedIds.value.delete(id)
-  } else {
-    expandedIds.value.add(id)
-  }
-  allExpanded.value = false
+function getAllIds(nodes) {
+  const ids = []
+  nodes.forEach(n => {
+    ids.push(n.id)
+    if (n.children?.length) ids.push(...getAllIds(n.children))
+  })
+  return ids
 }
 
 function toggleAllExpand() {
-  allExpanded.value = !allExpanded.value
-  if (!allExpanded.value) {
-    expandedIds.value.clear()
+  if (expandedRowKeys.value.length) {
+    expandedRowKeys.value = []
+  } else {
+    expandedRowKeys.value = getAllIds(treeData.value)
   }
 }
 
@@ -142,124 +155,111 @@ async function handleDelete() {
   confirmVisible.value = false
 }
 
-onMounted(() => {
-  store.fetchItems()
+onMounted(async () => {
+  await store.fetchItems()
+  expandedRowKeys.value = getAllIds(treeData.value)
 })
 </script>
 
 <template>
-  <div class="page-card">
-    <div class="toolbar">
-      <input v-model="search" class="form-input" placeholder="搜索部门编码/名称" style="width: 200px;" />
-      <select v-model="filterStatus" class="form-select" style="width: 120px;">
-        <option value="">全部状态</option>
-        <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
-      </select>
-      <button class="btn" @click="toggleAllExpand">{{ allExpanded ? '全部折叠' : '全部展开' }}</button>
-      <span class="spacer"></span>
-      <button class="btn btn-primary" @click="openAdd()">+ 新增顶级部门</button>
-    </div>
+  <a-card>
+    <a-flex justify="space-between" align="center" wrap="wrap" :gap="8">
+      <a-space>
+        <a-input v-model:value="search" placeholder="搜索部门编码/名称" style="width: 200px;" />
+        <a-select v-model:value="filterStatus" style="width: 120px;" placeholder="全部状态" allow-clear>
+          <a-select-option v-for="s in statuses" :key="s" :value="s">{{ s }}</a-select-option>
+        </a-select>
+        <a-button @click="toggleAllExpand">{{ expandedRowKeys.length ? '全部折叠' : '全部展开' }}</a-button>
+      </a-space>
+      <a-button type="primary" @click="openAdd()">
+        <template #icon><PlusOutlined /></template>
+        新增顶级部门
+      </a-button>
+    </a-flex>
 
-    <div style="overflow-x: auto;">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>部门名称</th>
-            <th>部门编码</th>
-            <th>负责人</th>
-            <th>联系电话</th>
-            <th>排序</th>
-            <th>状态</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="item in flatData" :key="item.id">
-            <td>
-              <span :style="{ paddingLeft: item.level * 24 + 'px' }" style="display: inline-flex; align-items: center; gap: 4px;">
-                <span
-                  v-if="item.hasChildren"
-                  class="expand-icon"
-                  @click="toggleExpand(item.id)"
-                >{{ (allExpanded || expandedIds.has(item.id)) ? '&#9660;' : '&#9654;' }}</span>
-                <span v-else style="width: 14px; display: inline-block;"></span>
-                {{ item.name }}
-              </span>
-            </td>
-            <td>{{ item.code }}</td>
-            <td>{{ item.leader }}</td>
-            <td>{{ item.phone }}</td>
-            <td>{{ item.sort }}</td>
-            <td>
-              <StatusTag :label="item.status" :color-map="statusColorMap" :value="item.status" />
-            </td>
-            <td>
-              <button class="btn-text" @click="openEdit(item)">编辑</button>
-              <button class="btn-text" @click="openAdd(item.id, item.name)">新增子部门</button>
-              <button class="btn-text danger" @click="confirmDelete(item.id)">删除</button>
-            </td>
-          </tr>
-          <tr v-if="!flatData.length">
-            <td colspan="7" class="table-empty">暂无数据</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <a-table
+      :columns="columns"
+      :data-source="filteredTreeData"
+      :loading="store.loading"
+      v-model:expanded-row-keys="expandedRowKeys"
+      row-key="id"
+      :pagination="false"
+      style="margin-top: 16px;"
+    >
+      <template #bodyCell="{ column, record }">
+        <template v-if="column.key === 'status'">
+          <StatusTag :label="record.status" :color-map="statusColorMap" :value="record.status" />
+        </template>
+        <template v-else-if="column.key === 'action'">
+          <a-button type="link" size="small" @click="openEdit(record)">编辑</a-button>
+          <a-button type="link" size="small" @click="openAdd(record.id, record.name)">新增子部门</a-button>
+          <a-button type="link" danger size="small" @click="confirmDelete(record.id)">删除</a-button>
+        </template>
+      </template>
+    </a-table>
 
-    <!-- Add/Edit Modal -->
-    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-      <div class="modal-box">
-        <div class="modal-header">
-          <span>{{ editingItem ? '编辑部门' : '新增部门' }}</span>
-          <button class="modal-close" @click="closeModal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label class="form-label">上级部门</label>
-            <select v-model="form.parentId" class="form-select" style="width: 100%;" @change="form.parentName = getAvailableParents(editingItem?.id).find(d => d.id === form.parentId)?.name || ''">
-              <option value="">无（顶级部门）</option>
-              <option v-for="d in getAvailableParents(editingItem?.id)" :key="d.id" :value="d.id">{{ d.name }}</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">部门编码 <span class="required">*</span></label>
-              <input v-model="form.code" class="form-input" style="width: 100%;" placeholder="请输入编码" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">部门名称 <span class="required">*</span></label>
-              <input v-model="form.name" class="form-input" style="width: 100%;" placeholder="请输入名称" />
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">负责人</label>
-              <input v-model="form.leader" class="form-input" style="width: 100%;" placeholder="负责人姓名" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">联系电话</label>
-              <input v-model="form.phone" class="form-input" style="width: 100%;" placeholder="联系电话" />
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">排序</label>
-              <input v-model.number="form.sort" type="number" class="form-input" style="width: 100%;" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">状态</label>
-              <select v-model="form.status" class="form-select" style="width: 100%;">
-                <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
-              </select>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn" @click="closeModal">取消</button>
-          <button class="btn btn-primary" @click="handleSave">保存</button>
-        </div>
-      </div>
-    </div>
+    <a-modal
+      :open="showModal"
+      :title="editingItem ? '编辑部门' : '新增部门'"
+      @cancel="closeModal"
+      :footer="null"
+    >
+      <a-form layout="vertical">
+        <a-form-item label="上级部门">
+          <a-select
+            v-model:value="form.parentId"
+            placeholder="无（顶级部门）"
+            style="width: 100%;"
+            allow-clear
+            @change="val => form.parentName = getAvailableParents(editingItem?.id).find(d => d.id === val)?.name || ''"
+          >
+            <a-select-option v-for="d in getAvailableParents(editingItem?.id)" :key="d.id" :value="d.id">{{ d.name }}</a-select-option>
+          </a-select>
+        </a-form-item>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="部门编码" required>
+              <a-input v-model:value="form.code" placeholder="请输入编码" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="部门名称" required>
+              <a-input v-model:value="form.name" placeholder="请输入名称" />
+            </a-form-item>
+          </a-col>
+        </a-row>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="负责人">
+              <a-input v-model:value="form.leader" placeholder="负责人姓名" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="联系电话">
+              <a-input v-model:value="form.phone" placeholder="联系电话" />
+            </a-form-item>
+          </a-col>
+        </a-row>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="排序">
+              <a-input-number v-model:value="form.sort" style="width: 100%;" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="状态">
+              <a-select v-model:value="form.status" style="width: 100%;">
+                <a-select-option v-for="s in statuses" :key="s" :value="s">{{ s }}</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+        </a-row>
+        <a-flex justify="flex-end" :gap="8">
+          <a-button @click="closeModal">取消</a-button>
+          <a-button type="primary" @click="handleSave">保存</a-button>
+        </a-flex>
+      </a-form>
+    </a-modal>
 
     <ConfirmDialog
       :visible="confirmVisible"
@@ -269,21 +269,5 @@ onMounted(() => {
       @confirm="handleDelete"
       @cancel="confirmVisible = false"
     />
-  </div>
+  </a-card>
 </template>
-
-<style scoped>
-.expand-icon {
-  cursor: pointer;
-  font-size: 10px;
-  color: var(--text-light);
-  width: 14px;
-  display: inline-block;
-  text-align: center;
-  user-select: none;
-}
-
-.expand-icon:hover {
-  color: var(--primary);
-}
-</style>

@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { UserOutlined, LockOutlined } from '@ant-design/icons-vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -40,38 +41,40 @@ function handleKeydown(e) {
         <h1 class="login-title">智能排程系统</h1>
         <p class="login-subtitle">化工行业高级计划排程</p>
       </div>
-      <div class="login-form">
-        <div class="form-group">
-          <label class="form-label">用户名</label>
-          <input
-            v-model="form.username"
-            class="form-input"
-            style="width: 100%;"
+      <a-form layout="vertical">
+        <a-form-item label="用户名">
+          <a-input
+            v-model:value="form.username"
             placeholder="请输入用户名"
             autocomplete="username"
-          />
-        </div>
-        <div class="form-group">
-          <label class="form-label">密码</label>
-          <input
-            v-model="form.password"
-            type="password"
-            class="form-input"
-            style="width: 100%;"
+            size="large"
+          >
+            <template #prefix><UserOutlined /></template>
+          </a-input>
+        </a-form-item>
+        <a-form-item label="密码">
+          <a-input-password
+            v-model:value="form.password"
             placeholder="请输入密码"
             autocomplete="current-password"
-          />
-        </div>
-        <div v-if="error" class="login-error">{{ error }}</div>
-        <button
-          class="btn btn-primary login-btn"
-          :disabled="loading"
+            size="large"
+          >
+            <template #prefix><LockOutlined /></template>
+          </a-input-password>
+        </a-form-item>
+        <a-alert v-if="error" :message="error" type="error" show-icon style="margin-bottom: 16px" />
+        <a-button
+          type="primary"
+          block
+          size="large"
+          :loading="loading"
           @click="handleLogin"
+          style="height: 42px; font-size: 16px; margin-bottom: 16px;"
         >
-          {{ loading ? '登录中...' : '登 录' }}
-        </button>
+          登 录
+        </a-button>
         <div class="login-hint">默认账号: admin / 123456</div>
-      </div>
+      </a-form>
     </div>
   </div>
 </template>
@@ -101,7 +104,7 @@ function handleKeydown(e) {
 .logo-box {
   width: 56px;
   height: 56px;
-  background: var(--primary);
+  background: #1677ff;
   color: #fff;
   border-radius: 12px;
   display: inline-flex;
@@ -115,35 +118,18 @@ function handleKeydown(e) {
 .login-title {
   margin: 0 0 4px;
   font-size: 24px;
-  color: var(--text-primary);
+  color: rgba(0, 0, 0, 0.88);
 }
 
 .login-subtitle {
   margin: 0;
-  color: var(--text-light);
+  color: rgba(0, 0, 0, 0.45);
   font-size: 14px;
-}
-
-.login-form .form-group {
-  margin-bottom: 20px;
-}
-
-.login-error {
-  color: var(--danger);
-  font-size: 13px;
-  margin-bottom: 16px;
-}
-
-.login-btn {
-  width: 100%;
-  height: 42px;
-  font-size: 16px;
-  margin-bottom: 16px;
 }
 
 .login-hint {
   text-align: center;
-  color: var(--text-light);
+  color: rgba(0, 0, 0, 0.45);
   font-size: 13px;
 }
 </style>

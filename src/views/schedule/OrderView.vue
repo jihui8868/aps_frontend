@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { PlusOutlined } from '@ant-design/icons-vue'
 import { useOrderStore } from '@/stores/order'
 import { useProductStore } from '@/stores/product'
 import StatusTag from '@/components/StatusTag.vue'
@@ -20,6 +21,19 @@ const priorities = ['高', '中', '低']
 const priorityColorMap = { '高': '#ff4d4f', '中': '#fa8c16', '低': '#1677ff' }
 const orderStatuses = ['待排产', '生产中', '已完成', '已取消']
 const statusColorMap = { '待排产': '#1677ff', '生产中': '#52c41a', '已完成': '#999', '已取消': '#ff4d4f' }
+
+const columns = [
+  { title: '订单编号', dataIndex: 'orderNo', key: 'orderNo' },
+  { title: '产品名称', dataIndex: 'productName', key: 'productName' },
+  { title: '数量', dataIndex: 'quantity', key: 'quantity' },
+  { title: '单位', dataIndex: 'unit', key: 'unit' },
+  { title: '客户', dataIndex: 'customer', key: 'customer' },
+  { title: '优先级', dataIndex: 'priority', key: 'priority' },
+  { title: '状态', dataIndex: 'status', key: 'status' },
+  { title: '下单日期', dataIndex: 'orderDate', key: 'orderDate' },
+  { title: '交期', dataIndex: 'deadline', key: 'deadline' },
+  { title: '操作', key: 'action' },
+]
 
 const defaultForm = () => ({
   orderNo: '',
@@ -100,130 +114,115 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="page-card">
-    <div class="toolbar">
-      <input v-model="search" class="form-input" placeholder="搜索订单号/产品/客户" style="width: 220px;" />
-      <select v-model="filterPriority" class="form-select" style="width: 120px;">
-        <option value="">全部优先级</option>
-        <option v-for="p in priorities" :key="p" :value="p">{{ p }}</option>
-      </select>
-      <select v-model="filterStatus" class="form-select" style="width: 120px;">
-        <option value="">全部状态</option>
-        <option v-for="s in orderStatuses" :key="s" :value="s">{{ s }}</option>
-      </select>
-      <span class="spacer"></span>
-      <button class="btn btn-primary" @click="openAdd">+ 新增订单</button>
-    </div>
+  <a-card>
+    <a-flex justify="space-between" align="center" wrap="wrap" :gap="8">
+      <a-space>
+        <a-input v-model:value="search" placeholder="搜索订单号/产品/客户" style="width: 220px;" />
+        <a-select v-model:value="filterPriority" style="width: 120px;" placeholder="全部优先级" allow-clear>
+          <a-select-option v-for="p in priorities" :key="p" :value="p">{{ p }}</a-select-option>
+        </a-select>
+        <a-select v-model:value="filterStatus" style="width: 120px;" placeholder="全部状态" allow-clear>
+          <a-select-option v-for="s in orderStatuses" :key="s" :value="s">{{ s }}</a-select-option>
+        </a-select>
+      </a-space>
+      <a-button type="primary" @click="openAdd">
+        <template #icon><PlusOutlined /></template>
+        新增订单
+      </a-button>
+    </a-flex>
 
-    <div style="overflow-x: auto;">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>订单编号</th>
-            <th>产品名称</th>
-            <th>数量</th>
-            <th>单位</th>
-            <th>客户</th>
-            <th>优先级</th>
-            <th>状态</th>
-            <th>下单日期</th>
-            <th>交期</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="item in filtered" :key="item.id">
-            <td>{{ item.orderNo }}</td>
-            <td>{{ item.productName }}</td>
-            <td>{{ item.quantity }}</td>
-            <td>{{ item.unit }}</td>
-            <td>{{ item.customer }}</td>
-            <td>
-              <StatusTag :label="item.priority" :color-map="priorityColorMap" :value="item.priority" />
-            </td>
-            <td>
-              <StatusTag :label="item.status" :color-map="statusColorMap" :value="item.status" />
-            </td>
-            <td>{{ item.orderDate }}</td>
-            <td>{{ item.deadline }}</td>
-            <td>
-              <button class="btn-text" @click="openEdit(item)">编辑</button>
-              <button class="btn-text danger" @click="confirmDelete(item.id)">删除</button>
-            </td>
-          </tr>
-          <tr v-if="!filtered.length">
-            <td colspan="10" class="table-empty">暂无数据</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <a-table
+      :columns="columns"
+      :data-source="filtered"
+      :loading="store.loading"
+      row-key="id"
+      :pagination="false"
+      style="margin-top: 16px;"
+    >
+      <template #bodyCell="{ column, record }">
+        <template v-if="column.key === 'priority'">
+          <StatusTag :label="record.priority" :color-map="priorityColorMap" :value="record.priority" />
+        </template>
+        <template v-else-if="column.key === 'status'">
+          <StatusTag :label="record.status" :color-map="statusColorMap" :value="record.status" />
+        </template>
+        <template v-else-if="column.key === 'action'">
+          <a-button type="link" size="small" @click="openEdit(record)">编辑</a-button>
+          <a-button type="link" danger size="small" @click="confirmDelete(record.id)">删除</a-button>
+        </template>
+      </template>
+    </a-table>
 
-    <!-- Add/Edit Modal -->
-    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-      <div class="modal-box">
-        <div class="modal-header">
-          <span>{{ editingItem ? '编辑订单' : '新增订单' }}</span>
-          <button class="modal-close" @click="closeModal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label class="form-label">订单编号 <span class="required">*</span></label>
-            <input v-model="form.orderNo" class="form-input" style="width: 100%;" placeholder="请输入订单编号" />
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">产品 <span class="required">*</span></label>
-              <select v-model="form.productId" class="form-select" style="width: 100%;" @change="onProductChange">
-                <option value="">请选择</option>
-                <option v-for="p in productStore.items" :key="p.id" :value="p.id">{{ p.name }}</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">客户</label>
-              <input v-model="form.customer" class="form-input" style="width: 100%;" placeholder="客户名称" />
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">数量</label>
-              <input v-model="form.quantity" type="number" class="form-input" style="width: 100%;" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">单位</label>
-              <input v-model="form.unit" class="form-input" style="width: 100%;" placeholder="kg / L / t" />
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">优先级</label>
-              <select v-model="form.priority" class="form-select" style="width: 100%;">
-                <option v-for="p in priorities" :key="p" :value="p">{{ p }}</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">状态</label>
-              <select v-model="form.status" class="form-select" style="width: 100%;">
-                <option v-for="s in orderStatuses" :key="s" :value="s">{{ s }}</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">下单日期</label>
-              <input v-model="form.orderDate" type="date" class="form-input" style="width: 100%;" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">交期</label>
-              <input v-model="form.deadline" type="date" class="form-input" style="width: 100%;" />
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn" @click="closeModal">取消</button>
-          <button class="btn btn-primary" @click="handleSave">保存</button>
-        </div>
-      </div>
-    </div>
+    <a-modal
+      :open="showModal"
+      :title="editingItem ? '编辑订单' : '新增订单'"
+      @cancel="closeModal"
+      :footer="null"
+    >
+      <a-form layout="vertical">
+        <a-form-item label="订单编号" required>
+          <a-input v-model:value="form.orderNo" placeholder="请输入订单编号" />
+        </a-form-item>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="产品" required>
+              <a-select v-model:value="form.productId" placeholder="请选择" style="width: 100%;" @change="onProductChange">
+                <a-select-option v-for="p in productStore.items" :key="p.id" :value="p.id">{{ p.name }}</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="客户">
+              <a-input v-model:value="form.customer" placeholder="客户名称" />
+            </a-form-item>
+          </a-col>
+        </a-row>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="数量">
+              <a-input-number v-model:value="form.quantity" style="width: 100%;" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="单位">
+              <a-input v-model:value="form.unit" placeholder="kg / L / t" />
+            </a-form-item>
+          </a-col>
+        </a-row>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="优先级">
+              <a-select v-model:value="form.priority" style="width: 100%;">
+                <a-select-option v-for="p in priorities" :key="p" :value="p">{{ p }}</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="状态">
+              <a-select v-model:value="form.status" style="width: 100%;">
+                <a-select-option v-for="s in orderStatuses" :key="s" :value="s">{{ s }}</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+        </a-row>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="下单日期">
+              <a-date-picker v-model:value="form.orderDate" value-format="YYYY-MM-DD" style="width: 100%;" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="交期">
+              <a-date-picker v-model:value="form.deadline" value-format="YYYY-MM-DD" style="width: 100%;" />
+            </a-form-item>
+          </a-col>
+        </a-row>
+        <a-flex justify="flex-end" :gap="8">
+          <a-button @click="closeModal">取消</a-button>
+          <a-button type="primary" @click="handleSave">保存</a-button>
+        </a-flex>
+      </a-form>
+    </a-modal>
 
     <ConfirmDialog
       :visible="confirmVisible"
@@ -233,5 +232,5 @@ onMounted(() => {
       @confirm="handleDelete"
       @cancel="confirmVisible = false"
     />
-  </div>
+  </a-card>
 </template>

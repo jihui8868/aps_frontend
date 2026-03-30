@@ -1,13 +1,14 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoleStore } from '@/stores/role'
+import { PlusOutlined } from '@ant-design/icons-vue'
 import StatusTag from '@/components/StatusTag.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
 const store = useRoleStore()
 
 const search = ref('')
-const filterStatus = ref('')
+const filterStatus = ref(undefined)
 const showModal = ref(false)
 const editingItem = ref(null)
 const confirmVisible = ref(false)
@@ -77,6 +78,50 @@ const permissionTree = [
   },
 ]
 
+// Convert permissionTree to a-tree format
+function mapTreeData(nodes) {
+  return nodes.map(node => ({
+    title: node.label,
+    key: node.key,
+    children: node.children?.length ? mapTreeData(node.children) : undefined,
+  }))
+}
+
+const treeData = computed(() => mapTreeData(permissionTree))
+
+// Collect all leaf keys from the permission tree
+function collectLeafKeys(nodes) {
+  const leafKeys = []
+  for (const node of nodes) {
+    if (!node.children?.length) {
+      leafKeys.push(node.key)
+    } else {
+      leafKeys.push(...collectLeafKeys(node.children))
+    }
+  }
+  return leafKeys
+}
+
+const allLeafKeys = collectLeafKeys(permissionTree)
+
+// checkedKeys for a-tree (leaf keys only, since a-tree derives parent state)
+const checkedKeys = ref([])
+
+function onTreeCheck(keys, e) {
+  checkedKeys.value = keys
+  form.value.permissions = [...keys, ...(e.halfCheckedKeys || [])]
+}
+
+const columns = [
+  { title: '角色编码', dataIndex: 'code', key: 'code' },
+  { title: '角色名称', dataIndex: 'name', key: 'name' },
+  { title: '描述', dataIndex: 'description', key: 'description' },
+  { title: '权限数', key: 'permissionCount' },
+  { title: '关联用户数', key: 'userCount' },
+  { title: '状态', dataIndex: 'status', key: 'status' },
+  { title: '操作', key: 'action' },
+]
+
 const defaultForm = () => ({
   code: '',
   name: '',
@@ -95,48 +140,18 @@ const filtered = computed(() => {
   })
 })
 
-function getAllChildKeys(node) {
-  const keys = [node.key]
-  if (node.children) {
-    node.children.forEach(child => {
-      keys.push(...getAllChildKeys(child))
-    })
-  }
-  return keys
-}
-
-function isChecked(key) {
-  return form.value.permissions.includes(key)
-}
-
-function togglePermission(node) {
-  const allKeys = getAllChildKeys(node)
-  const allChecked = allKeys.every(k => form.value.permissions.includes(k))
-  if (allChecked) {
-    form.value.permissions = form.value.permissions.filter(k => !allKeys.includes(k))
-  } else {
-    const newPerms = new Set(form.value.permissions)
-    allKeys.forEach(k => newPerms.add(k))
-    form.value.permissions = [...newPerms]
-  }
-}
-
-function isIndeterminate(node) {
-  if (!node.children?.length) return false
-  const allKeys = getAllChildKeys(node)
-  const checkedCount = allKeys.filter(k => form.value.permissions.includes(k)).length
-  return checkedCount > 0 && checkedCount < allKeys.length
-}
-
 function openAdd() {
   editingItem.value = null
   form.value = defaultForm()
+  checkedKeys.value = []
   showModal.value = true
 }
 
 function openEdit(item) {
   editingItem.value = item
   form.value = { ...item, permissions: [...(item.permissions || [])] }
+  // Initialize checkedKeys with only leaf keys from the item's permissions
+  checkedKeys.value = (item.permissions || []).filter(k => allLeafKeys.includes(k))
   showModal.value = true
 }
 
@@ -178,113 +193,96 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="page-card">
-    <div class="toolbar">
-      <input v-model="search" class="form-input" placeholder="搜索角色编码/名称" style="width: 200px;" />
-      <select v-model="filterStatus" class="form-select" style="width: 120px;">
-        <option value="">全部状态</option>
-        <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
-      </select>
-      <span class="spacer"></span>
-      <button class="btn btn-primary" @click="openAdd">+ 新增角色</button>
-    </div>
+  <a-card>
+    <a-flex justify="space-between" align="center" wrap="wrap" :gap="8">
+      <a-space>
+        <a-input v-model:value="search" placeholder="搜索角色编码/名称" style="width: 200px;" allow-clear />
+        <a-select v-model:value="filterStatus" placeholder="全部状态" style="width: 120px;" allow-clear>
+          <a-select-option v-for="s in statuses" :key="s" :value="s">{{ s }}</a-select-option>
+        </a-select>
+      </a-space>
+      <a-button type="primary" @click="openAdd">
+        <template #icon><PlusOutlined /></template>
+        新增角色
+      </a-button>
+    </a-flex>
 
-    <div style="overflow-x: auto;">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>角色编码</th>
-            <th>角色名称</th>
-            <th>描述</th>
-            <th>权限数</th>
-            <th>关联用户数</th>
-            <th>状态</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="item in filtered" :key="item.id">
-            <td>{{ item.code }}</td>
-            <td>{{ item.name }}</td>
-            <td>{{ item.description }}</td>
-            <td>{{ item.permissionCount || item.permissions?.length || 0 }}</td>
-            <td>{{ item.userCount || 0 }}</td>
-            <td>
-              <StatusTag :label="item.status" :color-map="statusColorMap" :value="item.status" />
-            </td>
-            <td>
-              <button class="btn-text" @click="openEdit(item)">编辑</button>
-              <button class="btn-text danger" @click="confirmDelete(item.id)">删除</button>
-            </td>
-          </tr>
-          <tr v-if="!filtered.length">
-            <td colspan="7" class="table-empty">暂无数据</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <a-table
+      :columns="columns"
+      :data-source="filtered"
+      row-key="id"
+      :pagination="false"
+      style="margin-top: 16px;"
+    >
+      <template #bodyCell="{ column, record }">
+        <template v-if="column.key === 'permissionCount'">
+          {{ record.permissionCount || record.permissions?.length || 0 }}
+        </template>
+        <template v-if="column.key === 'userCount'">
+          {{ record.userCount || 0 }}
+        </template>
+        <template v-if="column.key === 'status'">
+          <StatusTag :label="record.status" :color-map="statusColorMap" :value="record.status" />
+        </template>
+        <template v-if="column.key === 'action'">
+          <a-button type="link" size="small" @click="openEdit(record)">编辑</a-button>
+          <a-button type="link" size="small" danger @click="confirmDelete(record.id)">删除</a-button>
+        </template>
+      </template>
+    </a-table>
 
     <!-- Add/Edit Modal -->
-    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-      <div class="modal-box large">
-        <div class="modal-header">
-          <span>{{ editingItem ? '编辑角色' : '新增角色' }}</span>
-          <button class="modal-close" @click="closeModal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">角色编码 <span class="required">*</span></label>
-              <input v-model="form.code" class="form-input" style="width: 100%;" placeholder="如: admin, editor" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">角色名称 <span class="required">*</span></label>
-              <input v-model="form.name" class="form-input" style="width: 100%;" placeholder="如: 管理员" />
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">描述</label>
-              <input v-model="form.description" class="form-input" style="width: 100%;" placeholder="角色描述" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">状态</label>
-              <select v-model="form.status" class="form-select" style="width: 100%;">
-                <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
-              </select>
-            </div>
-          </div>
+    <a-modal
+      v-model:open="showModal"
+      :title="editingItem ? '编辑角色' : '新增角色'"
+      width="680px"
+      @cancel="closeModal"
+    >
+      <template #footer>
+        <a-button @click="closeModal">取消</a-button>
+        <a-button type="primary" @click="handleSave">保存</a-button>
+      </template>
 
-          <div style="margin-top: 16px; border-top: 1px solid var(--border-color); padding-top: 16px;">
-            <label class="form-label" style="margin-bottom: 12px;">权限配置</label>
-            <div class="perm-tree">
-              <div v-for="group in permissionTree" :key="group.key" class="perm-group">
-                <label class="perm-node level-0">
-                  <input type="checkbox" :checked="isChecked(group.key)" :indeterminate="isIndeterminate(group)" @change="togglePermission(group)" />
-                  <span>{{ group.label }}</span>
-                </label>
-                <div v-for="mod in group.children" :key="mod.key" class="perm-module">
-                  <label class="perm-node level-1">
-                    <input type="checkbox" :checked="isChecked(mod.key)" :indeterminate="isIndeterminate(mod)" @change="togglePermission(mod)" />
-                    <span>{{ mod.label }}</span>
-                  </label>
-                  <div v-if="mod.children?.length" class="perm-actions">
-                    <label v-for="action in mod.children" :key="action.key" class="perm-node level-2">
-                      <input type="checkbox" :checked="isChecked(action.key)" @change="togglePermission(action)" />
-                      <span>{{ action.label }}</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn" @click="closeModal">取消</button>
-          <button class="btn btn-primary" @click="handleSave">保存</button>
-        </div>
-      </div>
-    </div>
+      <a-form layout="vertical">
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="角色编码" required>
+              <a-input v-model:value="form.code" placeholder="如: admin, editor" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="角色名称" required>
+              <a-input v-model:value="form.name" placeholder="如: 管理员" />
+            </a-form-item>
+          </a-col>
+        </a-row>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="描述">
+              <a-input v-model:value="form.description" placeholder="角色描述" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="状态">
+              <a-select v-model:value="form.status">
+                <a-select-option v-for="s in statuses" :key="s" :value="s">{{ s }}</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+        </a-row>
+
+        <a-divider />
+
+        <a-form-item label="权限配置">
+          <a-tree
+            checkable
+            :tree-data="treeData"
+            :checked-keys="checkedKeys"
+            @check="onTreeCheck"
+          />
+        </a-form-item>
+      </a-form>
+    </a-modal>
 
     <ConfirmDialog
       :visible="confirmVisible"
@@ -294,57 +292,5 @@ onMounted(() => {
       @confirm="handleDelete"
       @cancel="confirmVisible = false"
     />
-  </div>
+  </a-card>
 </template>
-
-<style scoped>
-.perm-tree {
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 12px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.perm-group {
-  margin-bottom: 12px;
-}
-
-.perm-group:last-child {
-  margin-bottom: 0;
-}
-
-.perm-node {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  user-select: none;
-}
-
-.perm-node input {
-  cursor: pointer;
-}
-
-.level-0 {
-  font-weight: 500;
-}
-
-.perm-module {
-  margin-left: 24px;
-  margin-top: 6px;
-}
-
-.perm-actions {
-  display: flex;
-  gap: 16px;
-  margin-left: 24px;
-  margin-top: 4px;
-}
-
-.level-2 {
-  color: var(--text-secondary);
-  font-size: 13px;
-}
-</style>

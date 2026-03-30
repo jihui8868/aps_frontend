@@ -26,6 +26,17 @@ const taskColors = [
   '#f5222d', '#1890ff', '#fadb14', '#ff7a45', '#597ef7',
 ]
 
+const resultColumns = [
+  { title: '订单编号', dataIndex: 'orderNo', key: 'orderNo' },
+  { title: '产品', dataIndex: 'productName', key: 'productName' },
+  { title: '设备', dataIndex: 'deviceName', key: 'deviceName' },
+  { title: '车间', dataIndex: 'workshop', key: 'workshop' },
+  { title: '开始时间', key: 'startTime' },
+  { title: '结束时间', key: 'endTime' },
+  { title: '工时(h)', key: 'hours' },
+  { title: '是否延期', key: 'isLate' },
+]
+
 function toggleSelectAll() {
   if (selectedIds.value.length === pendingOrders.value.length) {
     selectedIds.value = []
@@ -276,94 +287,91 @@ onMounted(async () => {
   <div class="gantt-page">
     <!-- Left Panel -->
     <div class="gantt-sidebar">
-      <div class="sidebar-header">
-        <h3 style="margin: 0; font-size: 15px;">待排产订单</h3>
-        <button class="btn-text" @click="toggleSelectAll" style="font-size: 13px;">
-          {{ selectedIds.length === pendingOrders.length ? '取消全选' : '全选' }}
-        </button>
-      </div>
-      <div class="order-list">
-        <div
-          v-for="order in pendingOrders"
-          :key="order.id"
-          class="order-item"
-          :class="{ selected: selectedIds.includes(order.id) }"
-          @click="toggleSelect(order.id)"
-        >
-          <input type="checkbox" :checked="selectedIds.includes(order.id)" @click.stop="toggleSelect(order.id)" />
-          <div class="order-info">
-            <div class="order-no">{{ order.orderNo }}</div>
-            <div class="order-detail">{{ order.productName }} | {{ order.quantity }}{{ order.unit }}</div>
-            <div class="order-meta">
-              <span :style="{ color: order.priority === '高' ? '#ff4d4f' : order.priority === '中' ? '#fa8c16' : '#1677ff' }">{{ order.priority }}优先</span>
-              <span>交期: {{ order.deadline }}</span>
+      <a-card title="待排产订单" :body-style="{ padding: '8px', display: 'flex', flexDirection: 'column', flex: 1 }" style="display: flex; flex-direction: column; height: 100%;">
+        <template #extra>
+          <a-button type="link" size="small" @click="toggleSelectAll">
+            {{ selectedIds.length === pendingOrders.length ? '取消全选' : '全选' }}
+          </a-button>
+        </template>
+
+        <!-- Order list -->
+        <div style="flex: 1; overflow-y: auto;">
+          <div
+            v-for="order in pendingOrders"
+            :key="order.id"
+            class="order-item"
+            :class="{ selected: selectedIds.includes(order.id) }"
+            @click="toggleSelect(order.id)"
+          >
+            <a-checkbox :checked="selectedIds.includes(order.id)" @click.stop="toggleSelect(order.id)" />
+            <div class="order-info">
+              <div class="order-no">{{ order.orderNo }}</div>
+              <div class="order-detail">{{ order.productName }} | {{ order.quantity }}{{ order.unit }}</div>
+              <div class="order-meta">
+                <span :style="{ color: order.priority === '高' ? '#ff4d4f' : order.priority === '中' ? '#fa8c16' : '#1677ff' }">{{ order.priority }}优先</span>
+                <span>交期: {{ order.deadline }}</span>
+              </div>
+            </div>
+          </div>
+          <a-empty v-if="!pendingOrders.length" description="暂无待排产订单" />
+        </div>
+
+        <!-- Bottom actions -->
+        <div style="padding: 12px 8px 0; border-top: 1px solid #f0f0f0;">
+          <a-form-item label="排程起始日期" style="margin-bottom: 12px">
+            <a-date-picker v-model:value="startDate" value-format="YYYY-MM-DD" style="width: 100%" />
+          </a-form-item>
+          <a-button type="primary" block :loading="scheduling" :disabled="!selectedIds.length" @click="startSchedule">
+            {{ scheduling ? '排程中...' : '开始排程' }}
+          </a-button>
+          <div v-if="scheduling" style="margin-top: 12px">
+            <a-progress :percent="progress / 200 * 100" :show-info="false" />
+            <div style="font-size: 12px; color: rgba(0,0,0,0.45); margin-top: 6px;">
+              迭代: {{ progress }} / 200 | 适应度: {{ bestFitness.toFixed(1) }}
             </div>
           </div>
         </div>
-        <div v-if="!pendingOrders.length" style="text-align: center; padding: 32px 0; color: var(--text-light);">暂无待排产订单</div>
-      </div>
-
-      <div class="sidebar-actions">
-        <div class="form-group" style="margin-bottom: 12px;">
-          <label class="form-label">排程起始日期</label>
-          <input v-model="startDate" type="date" class="form-input" style="width: 100%;" />
-        </div>
-        <button
-          class="btn btn-primary"
-          style="width: 100%;"
-          :disabled="!selectedIds.length || scheduling"
-          @click="startSchedule"
-        >
-          {{ scheduling ? '排程中...' : '开始排程' }}
-        </button>
-
-        <div v-if="scheduling" class="progress-area">
-          <div class="progress-bar">
-            <div class="progress-fill" :style="{ width: (progress / 200 * 100) + '%' }"></div>
-          </div>
-          <div class="progress-text">迭代: {{ progress }} / 200 | 适应度: {{ bestFitness.toFixed(1) }}</div>
-        </div>
-      </div>
+      </a-card>
     </div>
 
     <!-- Right Area -->
     <div class="gantt-main">
-      <div v-if="!scheduleResult" class="gantt-empty">
-        <p>选择待排产订单，点击"开始排程"进行智能排程</p>
-      </div>
+      <a-empty v-if="!scheduleResult" description="选择待排产订单，点击「开始排程」进行智能排程" style="margin-top: 100px" />
 
       <template v-if="scheduleResult">
         <!-- Stats -->
-        <div class="stats-row">
-          <div class="stat-card">
-            <div class="stat-value">{{ scheduleResult.stats.makespan }}h</div>
-            <div class="stat-label">总工期</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value">{{ scheduleResult.schedule.length }}</div>
-            <div class="stat-label">排程任务</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" :style="{ color: scheduleResult.schedule.filter(s => s.isLate).length ? '#ff4d4f' : '#52c41a' }">
-              {{ scheduleResult.schedule.filter(s => s.isLate).length }}
-            </div>
-            <div class="stat-label">延期数</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value">{{ scheduleResult.stats.iterations }}</div>
-            <div class="stat-label">迭代次数</div>
-          </div>
-        </div>
+        <a-row :gutter="16" style="margin-bottom: 16px">
+          <a-col :span="6">
+            <a-card>
+              <a-statistic title="总工期" :value="scheduleResult.stats.makespan" suffix="h" />
+            </a-card>
+          </a-col>
+          <a-col :span="6">
+            <a-card>
+              <a-statistic title="排程任务" :value="scheduleResult.schedule.length" />
+            </a-card>
+          </a-col>
+          <a-col :span="6">
+            <a-card>
+              <a-statistic title="延期数" :value="scheduleResult.schedule.filter(s => s.isLate).length"
+                :value-style="{ color: scheduleResult.schedule.filter(s => s.isLate).length ? '#ff4d4f' : '#52c41a' }" />
+            </a-card>
+          </a-col>
+          <a-col :span="6">
+            <a-card>
+              <a-statistic title="迭代次数" :value="scheduleResult.stats.iterations" />
+            </a-card>
+          </a-col>
+        </a-row>
 
         <!-- Gantt Chart -->
-        <div class="page-card" style="margin-bottom: 16px; overflow-x: auto; position: relative;">
-          <h4 style="margin: 0 0 12px; font-size: 15px;">甘特图</h4>
+        <a-card title="甘特图" style="margin-bottom: 16px; overflow-x: auto; position: relative;">
           <canvas
             ref="canvasRef"
             @mousemove="handleCanvasMouseMove"
             @mouseleave="handleCanvasMouseLeave"
           ></canvas>
-        </div>
+        </a-card>
 
         <!-- Tooltip -->
         <div
@@ -378,204 +386,35 @@ onMounted(async () => {
         </div>
 
         <!-- Result Table -->
-        <div class="page-card">
-          <h4 style="margin: 0 0 12px; font-size: 15px;">排程结果</h4>
-          <div style="overflow-x: auto;">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>订单编号</th>
-                  <th>产品</th>
-                  <th>设备</th>
-                  <th>车间</th>
-                  <th>开始时间</th>
-                  <th>结束时间</th>
-                  <th>工时(h)</th>
-                  <th>是否延期</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(item, idx) in scheduleResult.schedule" :key="idx">
-                  <td>{{ item.orderNo }}</td>
-                  <td>{{ item.productName }}</td>
-                  <td>{{ item.deviceName }}</td>
-                  <td>{{ item.workshop }}</td>
-                  <td>{{ formatDateTime(item.startTime) }}</td>
-                  <td>{{ formatDateTime(item.endTime) }}</td>
-                  <td>{{ item.hours.toFixed(1) }}</td>
-                  <td>
-                    <span :style="{ color: item.isLate ? '#ff4d4f' : '#52c41a' }">
-                      {{ item.isLate ? '是 (+' + item.lateHours.toFixed(1) + 'h)' : '否' }}
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <a-card title="排程结果">
+          <a-table :columns="resultColumns" :data-source="scheduleResult.schedule" :pagination="false" size="small">
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'startTime'">{{ formatDateTime(record.startTime) }}</template>
+              <template v-else-if="column.key === 'endTime'">{{ formatDateTime(record.endTime) }}</template>
+              <template v-else-if="column.key === 'hours'">{{ record.hours.toFixed(1) }}</template>
+              <template v-else-if="column.key === 'isLate'">
+                <a-tag :color="record.isLate ? 'red' : 'green'">
+                  {{ record.isLate ? '是 (+' + record.lateHours.toFixed(1) + 'h)' : '否' }}
+                </a-tag>
+              </template>
+            </template>
+          </a-table>
+        </a-card>
       </template>
     </div>
   </div>
 </template>
 
 <style scoped>
-.gantt-page {
-  display: flex;
-  gap: 16px;
-  height: calc(100vh - 92px);
-}
-
-.gantt-sidebar {
-  width: 320px;
-  background: #fff;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-}
-
-.sidebar-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.order-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 8px;
-}
-
-.order-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.order-item:hover {
-  background: var(--hover-bg);
-}
-
-.order-item.selected {
-  background: var(--primary-bg);
-}
-
-.order-item input[type="checkbox"] {
-  margin-top: 2px;
-  flex-shrink: 0;
-}
-
-.order-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.order-no {
-  font-weight: 500;
-  font-size: 13px;
-}
-
-.order-detail {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-top: 2px;
-}
-
-.order-meta {
-  display: flex;
-  gap: 12px;
-  font-size: 12px;
-  color: var(--text-light);
-  margin-top: 4px;
-}
-
-.sidebar-actions {
-  padding: 16px;
-  border-top: 1px solid var(--border-color);
-}
-
-.progress-area {
-  margin-top: 12px;
-}
-
-.progress-bar {
-  height: 6px;
-  background: #f0f0f0;
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: var(--primary);
-  border-radius: 3px;
-  transition: width 0.1s;
-}
-
-.progress-text {
-  font-size: 12px;
-  color: var(--text-light);
-  margin-top: 6px;
-}
-
-.gantt-main {
-  flex: 1;
-  overflow-y: auto;
-  min-width: 0;
-}
-
-.gantt-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 300px;
-  background: #fff;
-  border-radius: 8px;
-  color: var(--text-light);
-}
-
-.stats-row {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.stat-card {
-  flex: 1;
-  background: #fff;
-  border-radius: 8px;
-  padding: 20px;
-  text-align: center;
-}
-
-.stat-value {
-  font-size: 28px;
-  font-weight: 600;
-  color: var(--primary);
-}
-
-.stat-label {
-  font-size: 13px;
-  color: var(--text-light);
-  margin-top: 4px;
-}
-
-.gantt-tooltip {
-  position: fixed;
-  background: rgba(0, 0, 0, 0.8);
-  color: #fff;
-  padding: 10px 14px;
-  border-radius: 6px;
-  font-size: 12px;
-  line-height: 1.6;
-  pointer-events: none;
-  z-index: 999;
-  max-width: 300px;
-}
+.gantt-page { display: flex; gap: 16px; height: calc(100vh - 92px); }
+.gantt-sidebar { width: 320px; flex-shrink: 0; }
+.gantt-main { flex: 1; overflow-y: auto; min-width: 0; }
+.order-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px; border-radius: 6px; cursor: pointer; }
+.order-item:hover { background: #f5f5f5; }
+.order-item.selected { background: #e6f4ff; }
+.order-info { flex: 1; min-width: 0; }
+.order-no { font-weight: 500; font-size: 13px; }
+.order-detail { font-size: 12px; color: rgba(0,0,0,0.45); margin-top: 2px; }
+.order-meta { display: flex; gap: 12px; font-size: 12px; color: rgba(0,0,0,0.45); margin-top: 4px; }
+.gantt-tooltip { position: fixed; background: rgba(0,0,0,0.8); color: #fff; padding: 10px 14px; border-radius: 6px; font-size: 12px; line-height: 1.6; pointer-events: none; z-index: 999; max-width: 300px; }
 </style>

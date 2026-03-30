@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { PlusOutlined } from '@ant-design/icons-vue'
 import { useDictStore } from '@/stores/dict'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
@@ -37,10 +38,24 @@ const filteredItems = computed(() => {
   })
 })
 
+const columns = [
+  { title: '键值', dataIndex: 'key', key: 'key' },
+  { title: '名称', dataIndex: 'name', key: 'name' },
+  { title: '排序', dataIndex: 'sort', key: 'sort' },
+  { title: '状态', dataIndex: 'status', key: 'status' },
+  { title: '备注', dataIndex: 'remark', key: 'remark' },
+  { title: '操作', key: 'action' },
+]
+
 function selectCategory(cat) {
   selectedCategory.value = cat
   itemSearch.value = ''
   store.fetchItems(cat.category)
+}
+
+function handleMenuClick({ key }) {
+  const cat = store.categories.find(c => c.category === key)
+  if (cat) selectCategory(cat)
 }
 
 // Item CRUD
@@ -91,118 +106,104 @@ onMounted(() => {
   <div class="dict-page">
     <!-- Left: Category List -->
     <div class="dict-sidebar">
-      <div class="sidebar-header">
-        <h3 style="margin: 0; font-size: 15px;">字典分类</h3>
-      </div>
-      <div style="padding: 8px;">
-        <input v-model="categorySearch" class="form-input" placeholder="搜索分类" style="width: 100%;" />
-      </div>
-      <div class="type-list">
-        <div
-          v-for="cat in filteredCategories"
-          :key="cat.category"
-          class="type-item"
-          :class="{ active: selectedCategory?.category === cat.category }"
-          @click="selectCategory(cat)"
+      <a-card title="字典分类" :body-style="{ padding: '8px' }">
+        <a-input-search v-model:value="categorySearch" placeholder="搜索分类" style="margin-bottom: 8px;" />
+        <a-menu
+          mode="inline"
+          :selected-keys="selectedCategory ? [selectedCategory.category] : []"
+          @click="handleMenuClick"
         >
-          <div class="type-info">
-            <div class="type-name">{{ cat.category }}</div>
-          </div>
-          <span class="type-count">{{ cat.count || 0 }}</span>
-        </div>
-        <div v-if="!filteredCategories.length" style="text-align: center; padding: 24px 0; color: var(--text-light);">暂无分类</div>
-      </div>
+          <a-menu-item v-for="cat in filteredCategories" :key="cat.category">
+            <a-flex justify="space-between" align="center">
+              <span>{{ cat.category }}</span>
+              <a-badge :count="cat.count || 0" :number-style="{ backgroundColor: '#f0f0f0', color: '#999' }" />
+            </a-flex>
+          </a-menu-item>
+        </a-menu>
+        <a-empty v-if="!filteredCategories.length" description="暂无分类" />
+      </a-card>
     </div>
 
     <!-- Right: Items Table -->
     <div class="dict-main">
       <div v-if="!selectedCategory" class="dict-empty">
-        <p>请从左侧选择字典分类</p>
+        <a-empty description="请从左侧选择字典分类" />
       </div>
 
-      <div v-if="selectedCategory" class="page-card">
-        <div class="toolbar">
-          <h4 style="margin: 0; font-size: 15px;">{{ selectedCategory.category }}</h4>
-          <input v-model="itemSearch" class="form-input" placeholder="搜索键值/名称" style="width: 180px; margin-left: 16px;" />
-          <span class="spacer"></span>
-          <button class="btn btn-primary" @click="openAddItem">+ 新增字典项</button>
-        </div>
+      <a-card v-if="selectedCategory">
+        <a-flex justify="space-between" align="center" wrap="wrap" :gap="8">
+          <a-space>
+            <span style="font-weight: 500; font-size: 15px;">{{ selectedCategory.category }}</span>
+            <a-input v-model:value="itemSearch" placeholder="搜索键值/名称" style="width: 180px;" allow-clear />
+          </a-space>
+          <a-button type="primary" @click="openAddItem">
+            <template #icon><PlusOutlined /></template>
+            新增字典项
+          </a-button>
+        </a-flex>
 
-        <div style="overflow-x: auto;">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>键值</th>
-                <th>名称</th>
-                <th>排序</th>
-                <th>状态</th>
-                <th>备注</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="item in filteredItems" :key="item.id">
-                <td><code class="dict-code">{{ item.key }}</code></td>
-                <td>{{ item.name }}</td>
-                <td>{{ item.sort }}</td>
-                <td>
-                  <span :style="{ color: item.status === '启用' ? '#52c41a' : '#ff4d4f' }">{{ item.status }}</span>
-                </td>
-                <td>{{ item.remark }}</td>
-                <td>
-                  <button class="btn-text" @click="openEditItem(item)">编辑</button>
-                  <button class="btn-text danger" @click="confirmDeleteItem(item)">删除</button>
-                </td>
-              </tr>
-              <tr v-if="!filteredItems.length">
-                <td colspan="6" class="table-empty">暂无字典项</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+        <a-table
+          :columns="columns"
+          :data-source="filteredItems"
+          row-key="id"
+          :pagination="false"
+          style="margin-top: 16px;"
+        >
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'key'">
+              <code class="dict-code">{{ record.key }}</code>
+            </template>
+            <template v-if="column.key === 'status'">
+              <span :style="{ color: record.status === '启用' ? '#52c41a' : '#ff4d4f' }">{{ record.status }}</span>
+            </template>
+            <template v-if="column.key === 'action'">
+              <a-button type="link" size="small" @click="openEditItem(record)">编辑</a-button>
+              <a-button type="link" size="small" danger @click="confirmDeleteItem(record)">删除</a-button>
+            </template>
+          </template>
+        </a-table>
+      </a-card>
     </div>
 
     <!-- Item Modal -->
-    <div v-if="showItemModal" class="modal-overlay" @click.self="showItemModal = false">
-      <div class="modal-box" style="width: 420px;">
-        <div class="modal-header">
-          <span>{{ editingItemData ? '编辑字典项' : '新增字典项' }}</span>
-          <button class="modal-close" @click="showItemModal = false">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label class="form-label">键值 <span class="required">*</span></label>
-            <input v-model="itemForm.key" class="form-input" style="width: 100%;" placeholder="如: reactor" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">名称 <span class="required">*</span></label>
-            <input v-model="itemForm.name" class="form-input" style="width: 100%;" placeholder="如: 反应釜" />
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">排序</label>
-              <input v-model.number="itemForm.sort" type="number" class="form-input" style="width: 100%;" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">状态</label>
-              <select v-model="itemForm.status" class="form-select" style="width: 100%;">
-                <option value="启用">启用</option>
-                <option value="停用">停用</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">备注</label>
-            <input v-model="itemForm.remark" class="form-input" style="width: 100%;" placeholder="备注" />
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn" @click="showItemModal = false">取消</button>
-          <button class="btn btn-primary" @click="saveItem">保存</button>
-        </div>
-      </div>
-    </div>
+    <a-modal
+      v-model:open="showItemModal"
+      :title="editingItemData ? '编辑字典项' : '新增字典项'"
+      width="480px"
+      @cancel="showItemModal = false"
+    >
+      <template #footer>
+        <a-button @click="showItemModal = false">取消</a-button>
+        <a-button type="primary" @click="saveItem">保存</a-button>
+      </template>
+
+      <a-form layout="vertical">
+        <a-form-item label="键值" required>
+          <a-input v-model:value="itemForm.key" placeholder="如: reactor" />
+        </a-form-item>
+        <a-form-item label="名称" required>
+          <a-input v-model:value="itemForm.name" placeholder="如: 反应釜" />
+        </a-form-item>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="排序">
+              <a-input-number v-model:value="itemForm.sort" style="width: 100%;" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="状态">
+              <a-select v-model:value="itemForm.status">
+                <a-select-option value="启用">启用</a-select-option>
+                <a-select-option value="停用">停用</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+        </a-row>
+        <a-form-item label="备注">
+          <a-input v-model:value="itemForm.remark" placeholder="备注" />
+        </a-form-item>
+      </a-form>
+    </a-modal>
 
     <ConfirmDialog
       :visible="confirmVisible"
@@ -224,61 +225,7 @@ onMounted(() => {
 
 .dict-sidebar {
   width: 280px;
-  background: #fff;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
   flex-shrink: 0;
-}
-
-.sidebar-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.type-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 4px 8px;
-}
-
-.type-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.type-item:hover {
-  background: var(--hover-bg);
-}
-
-.type-item.active {
-  background: var(--primary-bg);
-}
-
-.type-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.type-name {
-  font-weight: 500;
-  font-size: 13px;
-}
-
-.type-count {
-  background: var(--border-color);
-  padding: 1px 8px;
-  border-radius: 10px;
-  font-size: 12px;
-  color: var(--text-secondary);
 }
 
 .dict-main {
@@ -294,7 +241,6 @@ onMounted(() => {
   height: 300px;
   background: #fff;
   border-radius: 8px;
-  color: var(--text-light);
 }
 
 .dict-code {
