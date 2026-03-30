@@ -205,7 +205,7 @@ onMounted(() => {
       :data-source="filtered"
       :loading="store.loading"
       row-key="id"
-      :pagination="false"
+      :pagination="{ pageSize: 10, showSizeChanger: true, showTotal: total => `共 ${total} 条`, pageSizeOptions: ['10', '20', '50'] }"
       style="margin-top: 16px;"
     >
       <template #bodyCell="{ column, record }">

@@ -179,7 +179,7 @@ onMounted(() => {
       </a-tab-pane>
 
       <a-tab-pane :key="2" tab="人员权限明细">
-        <a-table :columns="userColumns" :data-source="userStore.items" row-key="id" :pagination="false">
+        <a-table :columns="userColumns" :data-source="userStore.items" row-key="id" :pagination="{ pageSize: 10, showSizeChanger: true, showTotal: total => `共 ${total} 条`, pageSizeOptions: ['10', '20', '50'] }">
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'role'">
               {{ record.role || '未分配' }}
