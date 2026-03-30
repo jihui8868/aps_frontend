@@ -23,7 +23,7 @@ const columns = [
   { title: '设备编号', dataIndex: 'code', key: 'code' },
   { title: '设备名称', dataIndex: 'name', key: 'name' },
   { title: '设备类型', dataIndex: 'type', key: 'type' },
-  { title: '规格型号', dataIndex: 'model', key: 'model' },
+  { title: '规格型号', dataIndex: 'spec', key: 'spec' },
   { title: '生产能力', dataIndex: 'capacity', key: 'capacity' },
   { title: '所属车间', dataIndex: 'workshop', key: 'workshop' },
   { title: '状态', dataIndex: 'status', key: 'status' },

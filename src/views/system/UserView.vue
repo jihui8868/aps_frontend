@@ -25,9 +25,9 @@ const statusColorMap = { '启用': '#52c41a', '停用': '#ff4d4f' }
 
 const columns = [
   { title: '用户名', dataIndex: 'username', key: 'username' },
-  { title: '姓名', dataIndex: 'name', key: 'name' },
-  { title: '角色', dataIndex: 'roleName', key: 'roleName' },
-  { title: '部门', dataIndex: 'deptName', key: 'deptName' },
+  { title: '姓名', dataIndex: 'realName', key: 'realName' },
+  { title: '角色', dataIndex: 'role', key: 'role' },
+  { title: '部门', dataIndex: 'department', key: 'department' },
   { title: '手机号', dataIndex: 'phone', key: 'phone' },
   { title: '邮箱', dataIndex: 'email', key: 'email' },
   { title: '状态', dataIndex: 'status', key: 'status' },
@@ -38,11 +38,9 @@ const columns = [
 const defaultForm = () => ({
   username: '',
   password: '',
-  name: '',
-  roleId: '',
-  roleName: '',
-  deptId: '',
-  deptName: '',
+  realName: '',
+  role: '',
+  department: '',
   phone: '',
   email: '',
   status: '启用',
@@ -53,8 +51,8 @@ const form = ref(defaultForm())
 
 const filtered = computed(() => {
   return userStore.items.filter(item => {
-    const matchSearch = !search.value || item.username?.includes(search.value) || item.name?.includes(search.value)
-    const matchRole = !filterRole.value || item.roleName === filterRole.value
+    const matchSearch = !search.value || item.username?.includes(search.value) || item.realName?.includes(search.value)
+    const matchRole = !filterRole.value || item.role === filterRole.value
     const matchStatus = !filterStatus.value || item.status === filterStatus.value
     return matchSearch && matchRole && matchStatus
   })
@@ -77,7 +75,7 @@ function closeModal() {
 }
 
 async function handleSave() {
-  if (!form.value.username || !form.value.name) return
+  if (!form.value.username || !form.value.realName) return
   if (!editingItem.value && !form.value.password) return
   try {
     if (editingItem.value) {
@@ -189,20 +187,20 @@ onMounted(() => {
           <a-input-password v-model:value="form.password" placeholder="请输入密码" />
         </a-form-item>
         <a-form-item label="姓名" required>
-          <a-input v-model:value="form.name" placeholder="请输入姓名" />
+          <a-input v-model:value="form.realName" placeholder="请输入姓名" />
         </a-form-item>
         <a-row :gutter="16">
           <a-col :span="12">
             <a-form-item label="角色">
-              <a-select v-model:value="form.roleId" placeholder="请选择" style="width: 100%;" @change="val => form.roleName = roleStore.items.find(r => r.id === val)?.name || ''">
-                <a-select-option v-for="r in roleStore.items" :key="r.id" :value="r.id">{{ r.name }}</a-select-option>
+              <a-select v-model:value="form.role" placeholder="请选择" style="width: 100%;">
+                <a-select-option v-for="r in roleStore.items" :key="r.id" :value="r.name">{{ r.name }}</a-select-option>
               </a-select>
             </a-form-item>
           </a-col>
           <a-col :span="12">
             <a-form-item label="部门">
-              <a-select v-model:value="form.deptId" placeholder="请选择" style="width: 100%;" @change="val => form.deptName = deptStore.items.find(d => d.id === val)?.name || ''">
-                <a-select-option v-for="d in deptStore.items" :key="d.id" :value="d.id">{{ d.name }}</a-select-option>
+              <a-select v-model:value="form.department" placeholder="请选择" style="width: 100%;">
+                <a-select-option v-for="d in deptStore.items" :key="d.id" :value="d.name">{{ d.name }}</a-select-option>
               </a-select>
             </a-form-item>
           </a-col>

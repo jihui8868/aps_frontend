@@ -23,7 +23,7 @@ const orderStatuses = ['待排产', '生产中', '已完成', '已取消']
 const statusColorMap = { '待排产': '#1677ff', '生产中': '#52c41a', '已完成': '#999', '已取消': '#ff4d4f' }
 
 const columns = [
-  { title: '订单编号', dataIndex: 'orderNo', key: 'orderNo' },
+  { title: '订单编号', dataIndex: 'code', key: 'code' },
   { title: '产品名称', dataIndex: 'productName', key: 'productName' },
   { title: '数量', dataIndex: 'quantity', key: 'quantity' },
   { title: '单位', dataIndex: 'unit', key: 'unit' },
@@ -31,13 +31,12 @@ const columns = [
   { title: '优先级', dataIndex: 'priority', key: 'priority' },
   { title: '状态', dataIndex: 'status', key: 'status' },
   { title: '下单日期', dataIndex: 'orderDate', key: 'orderDate' },
-  { title: '交期', dataIndex: 'deadline', key: 'deadline' },
+  { title: '交期', dataIndex: 'deliveryDate', key: 'deliveryDate' },
   { title: '操作', key: 'action' },
 ]
 
 const defaultForm = () => ({
-  orderNo: '',
-  productId: '',
+  code: '',
   productName: '',
   quantity: '',
   unit: '',
@@ -45,14 +44,14 @@ const defaultForm = () => ({
   priority: '中',
   status: '待排产',
   orderDate: new Date().toISOString().slice(0, 10),
-  deadline: '',
+  deliveryDate: '',
 })
 
 const form = ref(defaultForm())
 
 const filtered = computed(() => {
   return store.items.filter(item => {
-    const matchSearch = !search.value || item.orderNo?.includes(search.value) || item.productName?.includes(search.value) || item.customer?.includes(search.value)
+    const matchSearch = !search.value || item.code?.includes(search.value) || item.productName?.includes(search.value) || item.customer?.includes(search.value)
     const matchPriority = !filterPriority.value || item.priority === filterPriority.value
     const matchStatus = !filterStatus.value || item.status === filterStatus.value
     return matchSearch && matchPriority && matchStatus
@@ -76,7 +75,7 @@ function closeModal() {
 }
 
 async function handleSave() {
-  if (!form.value.orderNo || !form.value.productName) return
+  if (!form.value.code || !form.value.productName) return
   try {
     if (editingItem.value) {
       await store.updateItem(editingItem.value.id, form.value)
@@ -161,7 +160,7 @@ onMounted(() => {
     >
       <a-form layout="vertical">
         <a-form-item label="订单编号" required>
-          <a-input v-model:value="form.orderNo" placeholder="请输入订单编号" />
+          <a-input v-model:value="form.code" placeholder="请输入订单编号" />
         </a-form-item>
         <a-row :gutter="16">
           <a-col :span="12">
@@ -213,7 +212,7 @@ onMounted(() => {
           </a-col>
           <a-col :span="12">
             <a-form-item label="交期">
-              <a-date-picker v-model:value="form.deadline" value-format="YYYY-MM-DD" style="width: 100%;" />
+              <a-date-picker v-model:value="form.deliveryDate" value-format="YYYY-MM-DD" style="width: 100%;" />
             </a-form-item>
           </a-col>
         </a-row>

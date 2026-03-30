@@ -6,11 +6,24 @@ export const useDeptStore = defineStore('dept', () => {
   const items = ref([])
   const loading = ref(false)
 
+  function flattenTree(nodes) {
+    const result = []
+    for (const node of nodes) {
+      const { children, ...rest } = node
+      result.push(rest)
+      if (children?.length) {
+        result.push(...flattenTree(children))
+      }
+    }
+    return result
+  }
+
   async function fetchItems(params) {
     loading.value = true
     try {
       const res = await deptApi.list(params)
-      items.value = Array.isArray(res) ? res : (res.data || res.items || [])
+      const data = Array.isArray(res) ? res : (res.data || res.items || [])
+      items.value = data.length && data[0].children ? flattenTree(data) : data
     } catch (e) {
       console.error('Failed to fetch departments:', e)
     } finally {
