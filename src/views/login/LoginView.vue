@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { UserOutlined, LockOutlined } from '@ant-design/icons-vue'
+import LogoIcon from '@/components/LogoIcon.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -37,7 +38,7 @@ function handleKeydown(e) {
   <div class="login-page" @keydown="handleKeydown">
     <div class="login-card">
       <div class="login-logo">
-        <div class="logo-box">APS</div>
+        <LogoIcon :size="56" />
         <h1 class="login-title">智能排程系统</h1>
         <p class="login-subtitle">化工行业高级计划排程</p>
       </div>
@@ -101,17 +102,7 @@ function handleKeydown(e) {
   margin-bottom: 36px;
 }
 
-.logo-box {
-  width: 56px;
-  height: 56px;
-  background: #1677ff;
-  color: #fff;
-  border-radius: 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  font-weight: 700;
+.login-logo :deep(svg) {
   margin-bottom: 16px;
 }
 

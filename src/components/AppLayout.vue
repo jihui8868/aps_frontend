@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { MenuFoldOutlined, MenuUnfoldOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons-vue'
 import SideMenu from './SideMenu.vue'
+import LogoIcon from './LogoIcon.vue'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -34,8 +35,8 @@ function handleLogout() {
       :trigger="null"
     >
       <div class="logo-area">
-        <div class="logo-icon">APS</div>
-        <span v-if="!collapsed" class="logo-text">智能排程系统</span>
+        <LogoIcon :size="32" />
+        <span v-if="!collapsed" class="logo-text">瀚海智能排程系统</span>
       </div>
       <SideMenu :collapsed="collapsed" />
     </a-layout-sider>
@@ -80,20 +81,6 @@ function handleLogout() {
   padding: 0 16px;
   gap: 10px;
   border-bottom: 1px solid #f0f0f0;
-}
-
-.logo-icon {
-  width: 32px;
-  height: 32px;
-  background: #1677ff;
-  color: #fff;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 700;
-  flex-shrink: 0;
 }
 
 .logo-text {
